@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="Shopping"/>
+  <meta name="apple-mobile-web-app-title" content="Family"/>
   <meta name="theme-color" content="#4a7a40"/>
-  <title>Shopping Lists</title>
+  <title>Family App</title>
   <link rel="manifest" href="manifest.json"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -17,7 +17,8 @@
     ::-webkit-scrollbar{width:4px;}
     ::-webkit-scrollbar-thumb{background:#c8d9b8;border-radius:4px;}
     button:active{transform:scale(0.94);}
-    input::placeholder{color:#a8b898;}
+    input,textarea,select{font-family:'DM Sans',sans-serif;}
+    input::placeholder,textarea::placeholder{color:#a8b898;}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
     @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
     @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
@@ -28,104 +29,74 @@
 </head>
 <body>
 <div id="root"></div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-// ── Local storage helpers ─────────────────────────────────────────────────────
+// ── Storage ───────────────────────────────────────────────────────────────────
 const CFG_KEY   = "sl-config";
-const CACHE_KEY = "sl-cache-v1";
-
-function loadConfig() {
-  try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
-}
-function saveConfig(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
-
-function loadCache() {
-  try { return JSON.parse(localStorage.getItem(CACHE_KEY)); } catch { return null; }
-}
-function saveCache(data) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {}
-}
+const CACHE_KEY = "sl-cache-v2";
+function loadConfig(){ try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catch{return{};} }
+function saveConfig(c){ localStorage.setItem(CFG_KEY,JSON.stringify(c)); }
+function loadCache(){ try{return JSON.parse(localStorage.getItem(CACHE_KEY));}catch{return null;} }
+function saveCache(d){ try{localStorage.setItem(CACHE_KEY,JSON.stringify(d));}catch{} }
 
 // ── API ───────────────────────────────────────────────────────────────────────
-async function api(scriptUrl, password, action, extra = {}) {
+async function api(scriptUrl, password, action, extra={}) {
   const res = await fetch(scriptUrl, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({ password, action, ...extra }),
-    redirect: "follow",
+    method:"POST", headers:{"Content-Type":"text/plain"},
+    body: JSON.stringify({password,action,...extra}), redirect:"follow",
   });
   const json = await res.json();
-  if (json.error) throw new Error(json.error);
+  if(json.error) throw new Error(json.error);
   return json;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const COMMON_STORES = [
-  "Market Basket","Costco","Whole Foods","Trader Joe's","Target","Walmart",
-  "Stop & Shop","Shaw's","BJ's Wholesale","Aldi","CVS","Walgreens",
-  "Home Depot","Lowe's","Petco","Amazon","Hannaford","Star Market","Wegmans",
-];
-const STORE_COLORS = [
-  "#4a7a40","#3a6ea8","#8a5a3a","#7a3a6a","#3a7a7a",
-  "#6a7a3a","#8a3a3a","#3a5a8a","#5a6a3a","#4a6a7a",
-];
-function storeEmoji(name=""){
-  const n=name.toLowerCase();
-  if(n.includes("costco")||n.includes("bj's"))return"🏪";
-  if(n.includes("whole"))return"🌿";
-  if(n.includes("trader"))return"🌺";
-  if(n.includes("target"))return"🎯";
-  if(n.includes("walmart"))return"⭐";
-  if(n.includes("cvs")||n.includes("walgreens"))return"💊";
-  if(n.includes("home depot")||n.includes("lowe"))return"🔨";
-  if(n.includes("petco")||n.includes("petsmart"))return"🐾";
-  if(n.includes("amazon"))return"📦";
-  if(n.includes("market")||n.includes("basket")||n.includes("grocery"))return"🧺";
-  if(n.includes("aldi")||n.includes("lidl"))return"🏷";
-  return"🛍";
-}
-const EMOJI_MAP={milk:"🥛",eggs:"🥚",bread:"🍞",butter:"🧈",cheese:"🧀",chicken:"🍗",beef:"🥩",fish:"🐟",salmon:"🐟",pasta:"🍝",rice:"🍚",apple:"🍎",banana:"🍌",orange:"🍊",tomato:"🍅",onion:"🧅",garlic:"🧄",potato:"🥔",carrot:"🥕",broccoli:"🥦",spinach:"🥬",avocado:"🥑",mushroom:"🍄",coffee:"☕",tea:"🍵",juice:"🧃",wine:"🍷",beer:"🍺",yogurt:"🥛",sugar:"🍬",flour:"🌾",oil:"🫒",salt:"🧂",pepper:"🌶",soap:"🧼",shampoo:"🧴",toothpaste:"🪥",paper:"🧻",detergent:"🧴",dog:"🐾",cat:"🐾",treat:"🦴",food:"🥫",cereal:"🥣",chocolate:"🍫"};
-function itemEmoji(name=""){const n=name.toLowerCase();for(const[k,v]of Object.entries(EMOJI_MAP))if(n.includes(k))return v;return"🛒";}
-function hexToRgb(hex="#4a7a40"){return[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(",");}
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const STORE_COLORS=["#4a7a40","#3a6ea8","#8a5a3a","#7a3a6a","#3a7a7a","#6a7a3a","#8a3a3a","#3a5a8a","#5a6a3a","#4a6a7a"];
+const COMMON_STORES=["Market Basket","Costco","Whole Foods","Trader Joe's","Target","Walmart","Stop & Shop","Shaw's","BJ's Wholesale","Aldi","CVS","Walgreens","Home Depot","Lowe's","Petco","Amazon","Hannaford","Star Market","Wegmans"];
+function storeEmoji(n=""){n=n.toLowerCase();if(n.includes("costco")||n.includes("bj"))return"🏪";if(n.includes("whole"))return"🌿";if(n.includes("trader"))return"🌺";if(n.includes("target"))return"🎯";if(n.includes("walmart"))return"⭐";if(n.includes("cvs")||n.includes("walgreens"))return"💊";if(n.includes("home depot")||n.includes("lowe"))return"🔨";if(n.includes("petco"))return"🐾";if(n.includes("amazon"))return"📦";if(n.includes("market")||n.includes("basket"))return"🧺";return"🛍";}
+const EMOJI_MAP={milk:"🥛",eggs:"🥚",bread:"🍞",butter:"🧈",cheese:"🧀",chicken:"🍗",beef:"🥩",fish:"🐟",pasta:"🍝",rice:"🍚",apple:"🍎",banana:"🍌",orange:"🍊",tomato:"🍅",onion:"🧅",garlic:"🧄",potato:"🥔",carrot:"🥕",broccoli:"🥦",avocado:"🥑",coffee:"☕",tea:"🍵",juice:"🧃",wine:"🍷",beer:"🍺",yogurt:"🥛",sugar:"🍬",flour:"🌾",oil:"🫒",salt:"🧂",soap:"🧼",shampoo:"🧴",paper:"🧻",dog:"🐾",cat:"🐾",treat:"🦴",food:"🥫",cereal:"🥣",chocolate:"🍫"};
+function itemEmoji(n=""){const l=n.toLowerCase();for(const[k,v]of Object.entries(EMOJI_MAP))if(l.includes(k))return v;return"🛒";}
+function hexToRgb(h="#4a7a40"){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)).join(",");}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function fmt(dateStr){if(!dateStr)return"";const d=new Date(dateStr+"T12:00:00");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});}
+function isUpcoming(dateStr){if(!dateStr)return true;return new Date(dateStr+"T23:59:59")>=new Date();}
 
 // ── Setup Screen ──────────────────────────────────────────────────────────────
-function SetupScreen({ onComplete }) {
+function SetupScreen({onComplete}){
   const [url,setUrl]=useState(""); const [pass,setPass]=useState("");
-  const [error,setError]=useState(""); const [testing,setTesting]=useState(false);
-  const handleSubmit = async () => {
-    if(!url.trim()||!pass.trim()){setError("Both fields required.");return;}
+  const [calId,setCalId]=useState(""); const [error,setError]=useState("");
+  const [testing,setTesting]=useState(false);
+  const handleSubmit=async()=>{
+    if(!url.trim()||!pass.trim()){setError("Script URL and password required.");return;}
     setTesting(true);setError("");
-    try {
+    try{
       await api(url.trim(),pass.trim(),"getAll");
-      saveConfig({scriptUrl:url.trim(),password:pass.trim()});
-      onComplete({scriptUrl:url.trim(),password:pass.trim()});
-    } catch(e) {
-      setError(e.message==="Invalid password"?"Wrong password.":"Couldn't connect. Check the URL.");
-    } finally {setTesting(false);}
+      const cfg={scriptUrl:url.trim(),password:pass.trim(),calendarId:calId.trim()};
+      saveConfig(cfg); onComplete(cfg);
+    }catch(e){setError(e.message==="Invalid password"?"Wrong password.":"Couldn't connect. Check the URL.");}
+    finally{setTesting(false);}
   };
-  return (
+  const field={width:"100%",padding:"11px 14px",borderRadius:12,border:"1.5px solid rgba(120,160,100,0.25)",background:"rgba(255,255,255,0.7)",fontSize:14,color:"#2d3a28",outline:"none",marginBottom:16};
+  const label={fontSize:12,fontWeight:700,color:"#4a7a40",letterSpacing:0.5,display:"block",marginBottom:6};
+  return(
     <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0ede6 0%,#e8f0e0 60%,#dde8d0 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{width:"100%",maxWidth:400,background:"rgba(255,255,255,0.88)",borderRadius:24,padding:32,boxShadow:"0 8px 40px rgba(60,80,40,0.12)",border:"1px solid rgba(120,160,100,0.2)"}}>
-        <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:13,color:"#7a9a6a",marginBottom:4}}>welcome to</p>
-        <h1 style={{fontFamily:"'Lora',serif",fontSize:28,fontWeight:600,color:"#2d3a28",marginBottom:6}}>Shopping Lists</h1>
-        <p style={{fontSize:13,color:"#7a8a70",marginBottom:28,lineHeight:1.5}}>Paste your Apps Script URL and the shared password to get started. Saved on this device only.</p>
-        <label style={{fontSize:12,fontWeight:700,color:"#4a7a40",letterSpacing:0.5,display:"block",marginBottom:6}}>APPS SCRIPT URL</label>
-        <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec"
-          style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1.5px solid rgba(120,160,100,0.25)",background:"rgba(255,255,255,0.7)",fontSize:13,color:"#2d3a28",outline:"none",marginBottom:16}}/>
-        <label style={{fontSize:12,fontWeight:700,color:"#4a7a40",letterSpacing:0.5,display:"block",marginBottom:6}}>PASSWORD</label>
-        <input value={pass} onChange={e=>setPass(e.target.value)} type="password"
-          onKeyDown={e=>e.key==="Enter"&&handleSubmit()} placeholder="Shared password"
-          style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1.5px solid rgba(120,160,100,0.25)",background:"rgba(255,255,255,0.7)",fontSize:15,color:"#2d3a28",outline:"none",marginBottom:error?8:20}}/>
+      <div style={{width:"100%",maxWidth:420,background:"rgba(255,255,255,0.88)",borderRadius:24,padding:32,boxShadow:"0 8px 40px rgba(60,80,40,0.12)",border:"1px solid rgba(120,160,100,0.2)"}}>
+        <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:13,color:"#7a9a6a",marginBottom:4}}>welcome to your</p>
+        <h1 style={{fontFamily:"'Lora',serif",fontSize:28,fontWeight:600,color:"#2d3a28",marginBottom:6}}>Family App</h1>
+        <p style={{fontSize:13,color:"#7a8a70",marginBottom:24,lineHeight:1.5}}>Paste your Apps Script URL and shared password. Calendar ID is optional but enables event creation.</p>
+        <label style={label}>APPS SCRIPT URL</label>
+        <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={field}/>
+        <label style={label}>PASSWORD</label>
+        <input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Shared password" style={{...field,marginBottom:error?8:16}} onKeyDown={e=>e.key==="Enter"&&handleSubmit()}/>
         {error&&<p style={{fontSize:13,color:"#c05050",marginBottom:16}}>{error}</p>}
-        <button onClick={handleSubmit} disabled={testing}
-          style={{width:"100%",padding:"13px",background:testing?"#aaa":"linear-gradient(135deg,#5a8a50,#3d6e34)",color:"white",border:"none",borderRadius:14,fontSize:15,fontWeight:700,cursor:testing?"not-allowed":"pointer"}}>
+        <label style={label}>GOOGLE CALENDAR ID <span style={{fontWeight:400,color:"#aaa"}}>(optional)</span></label>
+        <input value={calId} onChange={e=>setCalId(e.target.value)} placeholder="yourname@gmail.com or calendar ID" style={field}/>
+        <p style={{fontSize:11,color:"#aabba0",marginBottom:20,lineHeight:1.5}}>Find in Google Calendar → Settings → your calendar → Calendar ID</p>
+        <button onClick={handleSubmit} disabled={testing} style={{width:"100%",padding:"13px",background:testing?"#aaa":"linear-gradient(135deg,#5a8a50,#3d6e34)",color:"white",border:"none",borderRadius:14,fontSize:15,fontWeight:700,cursor:testing?"not-allowed":"pointer"}}>
           {testing?"Connecting…":"Connect →"}
         </button>
       </div>
@@ -135,39 +106,32 @@ function SetupScreen({ onComplete }) {
 
 // ── History Modal ─────────────────────────────────────────────────────────────
 function HistoryModal({history,onRemove,onClearAll,onClose}){
-  const [filter,setFilter]=useState(""); const inputRef=useRef(null);
-  useEffect(()=>{inputRef.current?.focus();},[]);
+  const [filter,setFilter]=useState(""); const ref=useRef(null);
+  useEffect(()=>{ref.current?.focus();},[]);
   const visible=filter.trim()?history.filter(h=>h.toLowerCase().includes(filter.toLowerCase())):history;
   return(
     <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(30,40,25,0.45)",backdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:500,background:"linear-gradient(180deg,#f5f2eb,#edf3e5)",borderRadius:"24px 24px 0 0",boxShadow:"0 -8px 40px rgba(40,60,30,0.18)",maxHeight:"85vh",display:"flex",flexDirection:"column",animation:"slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)"}}>
         <div style={{padding:"20px 20px 12px",borderBottom:"1px solid rgba(120,160,100,0.15)"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-            <div>
-              <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:12,color:"#7a9a6a",marginBottom:1}}>manage</p>
-              <h2 style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600,color:"#2d3a28",lineHeight:1}}>Autocomplete History</h2>
-            </div>
+            <div><p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:12,color:"#7a9a6a",marginBottom:1}}>manage</p>
+            <h2 style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600,color:"#2d3a28",lineHeight:1}}>Autocomplete History</h2></div>
             <button onClick={onClose} style={{width:34,height:34,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.08)",cursor:"pointer",fontSize:18,color:"#666",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.8)",borderRadius:12,padding:"8px 14px",border:"1px solid rgba(120,160,100,0.2)"}}>
             <span style={{fontSize:15,color:"#aabba0"}}>🔍</span>
-            <input ref={inputRef} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search history…"
-              style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,color:"#2d3a28"}}/>
+            <input ref={ref} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search history…" style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,color:"#2d3a28"}}/>
             {filter&&<button onClick={()=>setFilter("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#bbb"}}>✕</button>}
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10}}>
-            <p style={{fontSize:12,color:"#9aaa88"}}>{visible.length} of {history.length} entr{history.length!==1?"ies":"y"}</p>
-            {history.length>0&&<button onClick={()=>{if(confirm("Clear entire autocomplete history?"))onClearAll();}} style={{background:"none",border:"1px solid rgba(200,100,100,0.4)",color:"#c08080",borderRadius:8,padding:"4px 12px",fontSize:12,cursor:"pointer",fontWeight:600}}>Clear all</button>}
+            <p style={{fontSize:12,color:"#9aaa88"}}>{visible.length} of {history.length} entries</p>
+            {history.length>0&&<button onClick={()=>{if(confirm("Clear entire history?"))onClearAll();}} style={{background:"none",border:"1px solid rgba(200,100,100,0.4)",color:"#c08080",borderRadius:8,padding:"4px 12px",fontSize:12,cursor:"pointer",fontWeight:600}}>Clear all</button>}
           </div>
         </div>
         <div style={{overflowY:"auto",flex:1,padding:"8px 20px 24px"}}>
-          {visible.length===0?(
-            <div style={{textAlign:"center",padding:"40px 20px",color:"#aabba0"}}>
-              <div style={{fontSize:36,marginBottom:10}}>🌿</div>
-              <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:16}}>{filter?"No matches":"History is empty"}</p>
-            </div>
-          ):visible.map((entry,i)=>(
-            <div key={entry+i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,marginBottom:4,background:"rgba(255,255,255,0.7)",border:"1px solid rgba(120,160,100,0.1)",animation:`fadeIn 0.15s ease ${Math.min(i,12)*0.02}s both`}}>
+          {visible.length===0?(<div style={{textAlign:"center",padding:"40px 20px",color:"#aabba0"}}><div style={{fontSize:36,marginBottom:10}}>🌿</div><p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:16}}>{filter?"No matches":"History is empty"}</p></div>)
+          :visible.map((entry,i)=>(
+            <div key={entry+i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,marginBottom:4,background:"rgba(255,255,255,0.7)",border:"1px solid rgba(120,160,100,0.1)"}}>
               <span style={{fontSize:17,flexShrink:0}}>{itemEmoji(entry)}</span>
               <span style={{flex:1,fontSize:15,color:"#2d3a28"}}>{entry}</span>
               <button onClick={()=>onRemove(entry)} style={{width:28,height:28,borderRadius:"50%",border:"none",background:"rgba(200,80,80,0.1)",color:"#c06060",cursor:"pointer",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}
@@ -185,14 +149,14 @@ function HistoryModal({history,onRemove,onClearAll,onClose}){
 function SwipeRow({item,color,stores,onRemove,onIncrement,onDecrement,onMove,draggingId,onDragStart,onDragEnd,isNew}){
   const [swipeX,setSwipeX]=useState(0); const [swiping,setSwiping]=useState(false);
   const [removing,setRemoving]=useState(false); const [showMove,setShowMove]=useState(false);
-  const startX=useRef(0); const curX=useRef(0);
-  const onTS=e=>{startX.current=e.touches[0].clientX;curX.current=0;setSwiping(true);};
-  const onTM=e=>{if(!swiping)return;const dx=e.touches[0].clientX-startX.current;curX.current=dx;if(dx<0)setSwipeX(Math.max(dx,-120));};
-  const onTE=()=>{setSwiping(false);if(curX.current<-80){setRemoving(true);setTimeout(()=>onRemove(item.id),280);}else setSwipeX(0);};
+  const sX=useRef(0); const cX=useRef(0);
+  const onTS=e=>{sX.current=e.touches[0].clientX;cX.current=0;setSwiping(true);};
+  const onTM=e=>{if(!swiping)return;const dx=e.touches[0].clientX-sX.current;cX.current=dx;if(dx<0)setSwipeX(Math.max(dx,-120));};
+  const onTE=()=>{setSwiping(false);if(cX.current<-80){setRemoving(true);setTimeout(()=>onRemove(item.id),280);}else setSwipeX(0);};
   return(
     <div style={{position:"relative",overflow:"visible",marginBottom:8,opacity:removing?0:1,maxHeight:removing?0:80,transition:removing?"all 0.28s ease":"none",animation:isNew?"popIn 0.25s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
       <div style={{position:"absolute",right:0,top:0,bottom:0,width:110,background:"linear-gradient(135deg,#e55,#c33)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",gap:4,zIndex:0}}>
-        <span style={{fontSize:16}}>🗑</span><span style={{color:"white",fontSize:11,fontWeight:700}}>Remove</span>
+        <span>🗑</span><span style={{color:"white",fontSize:11,fontWeight:700}}>Remove</span>
       </div>
       <div draggable onDragStart={e=>{e.dataTransfer.effectAllowed="move";onDragStart(item.id);}} onDragEnd={onDragEnd}
         onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
@@ -200,22 +164,12 @@ function SwipeRow({item,color,stores,onRemove,onIncrement,onDecrement,onMove,dra
         <span style={{fontSize:13,color:"#ccc",flexShrink:0}}>⠿</span>
         <span style={{fontSize:17,flexShrink:0}}>{item.emoji}</span>
         <span style={{flex:1,fontFamily:"'Lora',serif",fontSize:15,color:"#2d3a28",fontWeight:500}}>{item.name}</span>
-        {/* Pending indicator */}
         {item._pending&&<span style={{width:7,height:7,borderRadius:"50%",background:"rgba(120,160,100,0.5)",flexShrink:0,animation:"pulse 1s infinite"}}/>}
         <div style={{position:"relative",flexShrink:0}}>
           <button onClick={e=>{e.stopPropagation();setShowMove(p=>!p);}} style={{background:"none",border:`1px solid rgba(${hexToRgb(color)},0.3)`,borderRadius:8,padding:"3px 8px",cursor:"pointer",fontSize:10,color:color,fontWeight:700,whiteSpace:"nowrap"}}>move →</button>
-          {showMove&&(
-            <div style={{position:"absolute",right:0,top:"calc(100% + 4px)",background:"white",borderRadius:12,boxShadow:"0 8px 24px rgba(0,0,0,0.13)",border:"1px solid #e8eed8",zIndex:200,minWidth:150,overflow:"hidden"}}>
-              {stores.filter(s=>s.id!==item.storeId).map(s=>(
-                <div key={s.id} onClick={e=>{e.stopPropagation();onMove(item.id,s.id);setShowMove(false);}}
-                  style={{padding:"9px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#2d3a28",borderBottom:"1px solid #f5f8f0"}}
-                  onMouseEnter={e=>e.currentTarget.style.background="#f5f8f0"}
-                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <span>{storeEmoji(s.name)}</span><span>{s.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {showMove&&(<div style={{position:"absolute",right:0,top:"calc(100% + 4px)",background:"white",borderRadius:12,boxShadow:"0 8px 24px rgba(0,0,0,0.13)",border:"1px solid #e8eed8",zIndex:200,minWidth:150,overflow:"hidden"}}>
+            {stores.filter(s=>s.id!==item.storeId).map(s=>(<div key={s.id} onClick={e=>{e.stopPropagation();onMove(item.id,s.id);setShowMove(false);}} style={{padding:"9px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#2d3a28",borderBottom:"1px solid #f5f8f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f8f0"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span>{storeEmoji(s.name)}</span><span>{s.name}</span></div>))}
+          </div>)}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
           <button onClick={e=>{e.stopPropagation();onDecrement(item.id);}} style={{width:26,height:26,borderRadius:"50%",border:"none",background:"#f0f5ed",color:"#4a7a40",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
@@ -232,8 +186,7 @@ function StoreSection({store,items,stores,color,onRemoveItem,onIncrement,onDecre
   const [expanded,setExpanded]=useState(true); const [dragOver,setDragOver]=useState(false);
   const total=items.reduce((a,b)=>a+Number(b.count),0);
   return(
-    <div onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)}
-      onDrop={e=>{e.preventDefault();setDragOver(false);onDrop(store.id);}}
+    <div onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={e=>{e.preventDefault();setDragOver(false);onDrop(store.id);}}
       style={{marginBottom:14,borderRadius:18,border:dragOver?`2px dashed ${color}`:"2px solid transparent",background:dragOver?`rgba(${hexToRgb(color)},0.04)`:"transparent",padding:dragOver?6:0,transition:"all 0.2s"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 2px",cursor:"pointer"}} onClick={()=>setExpanded(p=>!p)}>
         <div style={{width:34,height:34,borderRadius:"50%",background:`rgba(${hexToRgb(color)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{storeEmoji(store.name)}</div>
@@ -242,347 +195,560 @@ function StoreSection({store,items,stores,color,onRemoveItem,onIncrement,onDecre
         <span style={{color:"#bbb",fontSize:11}}>{expanded?"▲":"▼"}</span>
         <button onClick={e=>{e.stopPropagation();onDeleteStore(store.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"2px 4px",flexShrink:0}}>✕</button>
       </div>
-      {expanded&&(
-        <div style={{paddingLeft:2}}>
-          {items.length===0?(<div style={{padding:"10px 16px",borderRadius:14,border:`1.5px dashed rgba(${hexToRgb(color)},0.25)`,textAlign:"center",color:"#ccc",fontSize:12,marginBottom:4}}>Drag items here · or add above</div>)
-          :items.map(item=>(<SwipeRow key={item.id} item={item} color={color} stores={stores} onRemove={onRemoveItem} onIncrement={onIncrement} onDecrement={onDecrement} onMove={onMoveItem} draggingId={draggingId} onDragStart={onDragStart} onDragEnd={onDragEnd} isNew={newItemIds.has(item.id)}/>))}
+      {expanded&&(<div style={{paddingLeft:2}}>
+        {items.length===0?(<div style={{padding:"10px 16px",borderRadius:14,border:`1.5px dashed rgba(${hexToRgb(color)},0.25)`,textAlign:"center",color:"#ccc",fontSize:12,marginBottom:4}}>Drag items here · or add above</div>)
+        :items.map(item=>(<SwipeRow key={item.id} item={item} color={color} stores={stores} onRemove={onRemoveItem} onIncrement={onIncrement} onDecrement={onDecrement} onMove={onMoveItem} draggingId={draggingId} onDragStart={onDragStart} onDragEnd={onDragEnd} isNew={newItemIds.has(item.id)}/>))}
+      </div>)}
+    </div>
+  );
+}
+
+// ── Add Activity Modal ────────────────────────────────────────────────────────
+function AddActivityModal({onSave,onClose}){
+  const [name,setName]=useState(""); const [startDate,setStartDate]=useState("");
+  const [endDate,setEndDate]=useState(""); const [startTime,setStartTime]=useState("");
+  const [endTime,setEndTime]=useState(""); const [location,setLocation]=useState("");
+  const [notes,setNotes]=useState(""); const [saving,setSaving]=useState(false);
+
+  const inputStyle={width:"100%",padding:"10px 14px",borderRadius:12,border:"1.5px solid rgba(120,160,100,0.2)",background:"rgba(255,255,255,0.8)",fontSize:14,color:"#2d3a28",outline:"none"};
+  const labelStyle={fontSize:11,fontWeight:700,color:"#7a9a6a",letterSpacing:0.5,display:"block",marginBottom:5,marginTop:12};
+
+  const handleSave=()=>{
+    if(!name.trim()||!startDate){alert("Name and start date are required.");return;}
+    setSaving(true);
+    onSave({id:uid(),name:name.trim(),startDate,endDate:endDate||startDate,startTime,endTime,location:location.trim(),notes:notes.trim(),addedAt:Date.now()});
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(30,40,25,0.45)",backdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:520,background:"linear-gradient(180deg,#f5f2eb,#edf3e5)",borderRadius:"24px 24px 0 0",boxShadow:"0 -8px 40px rgba(40,60,30,0.18)",maxHeight:"92vh",overflowY:"auto",animation:"slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)"}}>
+        <div style={{padding:"24px 24px 32px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+            <div><p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:12,color:"#7a9a6a",marginBottom:1}}>new</p>
+            <h2 style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600,color:"#2d3a28",lineHeight:1}}>Activity</h2></div>
+            <button onClick={onClose} style={{width:34,height:34,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.08)",cursor:"pointer",fontSize:18,color:"#666",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+
+          <label style={labelStyle}>NAME *</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Summer camp, soccer practice…" style={inputStyle} autoFocus/>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={labelStyle}>START DATE *</label><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} style={inputStyle}/></div>
+            <div><label style={labelStyle}>END DATE</label><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} style={inputStyle}/></div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={labelStyle}>START TIME</label><input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)} style={inputStyle}/></div>
+            <div><label style={labelStyle}>END TIME</label><input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} style={inputStyle}/></div>
+          </div>
+
+          <label style={labelStyle}>LOCATION</label>
+          <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Address or venue name" style={inputStyle}/>
+
+          <label style={labelStyle}>NOTES</label>
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Any details…" rows={3} style={{...inputStyle,resize:"vertical",lineHeight:1.5}}/>
+
+          <p style={{fontSize:11,color:"#aabba0",marginTop:12,marginBottom:20,lineHeight:1.5}}>
+            📅 Reminders will be set automatically at 14 days, 7 days, and 1 day before the start date.
+          </p>
+
+          <button onClick={handleSave} disabled={saving||!name.trim()||!startDate}
+            style={{width:"100%",padding:"14px",background:saving||!name.trim()||!startDate?"#ccc":"linear-gradient(135deg,#5a8a50,#3d6e34)",color:"white",border:"none",borderRadius:14,fontSize:15,fontWeight:700,cursor:"pointer"}}>
+            {saving?"Saving…":"Save Activity"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Paperwork Item ────────────────────────────────────────────────────────────
+function PaperworkItem({item,onToggle,onDelete}){
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:11,marginBottom:6,background:"rgba(255,255,255,0.7)",border:"1px solid rgba(120,160,100,0.12)",animation:"fadeIn 0.15s ease"}}>
+      <button onClick={()=>onToggle(item.id,!item.completed)}
+        style={{width:22,height:22,borderRadius:6,border:`2px solid ${item.completed?"#4a7a40":"rgba(120,160,100,0.4)"}`,background:item.completed?"#4a7a40":"transparent",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
+        {item.completed&&<span style={{color:"white",fontSize:12,fontWeight:700,lineHeight:1}}>✓</span>}
+      </button>
+      <span style={{flex:1,fontSize:14,color:item.completed?"#9aaa88":"#2d3a28",textDecoration:item.completed?"line-through":"none",fontFamily:"'DM Sans',sans-serif"}}>{item.label}</span>
+      {item.url&&(
+        <a href={item.url} target="_blank" rel="noopener noreferrer"
+          style={{fontSize:18,textDecoration:"none",flexShrink:0,opacity:0.7}}
+          title={item.type==="pdf"?"Open PDF":"Open Link"}>
+          {item.type==="pdf"?"📄":"🔗"}
+        </a>
+      )}
+      <button onClick={()=>onDelete(item.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",flexShrink:0,padding:"2px"}}
+        onMouseEnter={e=>e.currentTarget.style.color="#c08080"}
+        onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
+    </div>
+  );
+}
+
+// ── Add Paperwork Form ────────────────────────────────────────────────────────
+function AddPaperworkForm({activityId,onAdd,onUpload,uploading}){
+  const [label,setLabel]=useState(""); const [type,setType]=useState("link");
+  const [url,setUrl]=useState(""); const fileRef=useRef(null);
+
+  const handleAdd=()=>{
+    if(!label.trim())return;
+    if(type!=="upload"&&!url.trim()){alert("Please enter a URL.");return;}
+    onAdd({id:uid(),activityId,label:label.trim(),type,url:url.trim(),addedAt:Date.now()});
+    setLabel("");setUrl("");setType("link");
+  };
+
+  const handleFile=async(e)=>{
+    const file=e.target.files[0];
+    if(!file||!label.trim()){if(!label.trim())alert("Enter a label first.");return;}
+    const fileUrl=await onUpload(file,label.trim(),activityId);
+    if(fileUrl){
+      onAdd({id:uid(),activityId,label:label.trim(),type:"pdf",url:fileUrl,addedAt:Date.now()});
+      setLabel("");setType("link");
+    }
+    e.target.value="";
+  };
+
+  const btnStyle=(active)=>({padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:active?"#4a7a40":"rgba(120,160,100,0.12)",color:active?"white":"#4a7a40",transition:"all 0.15s"});
+
+  return(
+    <div style={{marginTop:12,padding:"14px",background:"rgba(240,245,235,0.7)",borderRadius:12,border:"1px solid rgba(120,160,100,0.15)"}}>
+      <p style={{fontSize:11,fontWeight:700,color:"#7a9a6a",letterSpacing:0.5,marginBottom:8}}>ADD PAPERWORK</p>
+      <input value={label} onChange={e=>setLabel(e.target.value)} placeholder="Label (e.g. Health Form, Deposit…)"
+        onKeyDown={e=>e.key==="Enter"&&type!=="upload"&&handleAdd()}
+        style={{width:"100%",padding:"8px 12px",borderRadius:10,border:"1px solid rgba(120,160,100,0.2)",background:"white",fontSize:14,color:"#2d3a28",outline:"none",marginBottom:8}}/>
+      <div style={{display:"flex",gap:6,marginBottom:8}}>
+        <button style={btnStyle(type==="link")} onClick={()=>setType("link")}>🔗 Web link</button>
+        <button style={btnStyle(type==="pdf")} onClick={()=>setType("pdf")}>📄 PDF link</button>
+        <button style={btnStyle(type==="upload")} onClick={()=>setType("upload")}>⬆️ Upload PDF</button>
+      </div>
+      {type==="upload"?(
+        <div style={{display:"flex",gap:8}}>
+          <input ref={fileRef} type="file" accept=".pdf,application/pdf" onChange={handleFile} style={{display:"none"}}/>
+          <button onClick={()=>fileRef.current?.click()} disabled={uploading||!label.trim()}
+            style={{flex:1,padding:"8px",background:uploading||!label.trim()?"#ccc":"#4a7a40",color:"white",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            {uploading?"Uploading…":"Choose PDF…"}
+          </button>
+        </div>
+      ):(
+        <div style={{display:"flex",gap:8}}>
+          <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://…"
+            onKeyDown={e=>e.key==="Enter"&&handleAdd()}
+            style={{flex:1,padding:"8px 12px",borderRadius:10,border:"1px solid rgba(120,160,100,0.2)",background:"white",fontSize:13,color:"#2d3a28",outline:"none"}}/>
+          <button onClick={handleAdd} disabled={!label.trim()||!url.trim()}
+            style={{padding:"8px 14px",background:!label.trim()||!url.trim()?"#ccc":"#4a7a40",color:"white",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>Add</button>
         </div>
       )}
     </div>
   );
 }
 
-// ── Main App ──────────────────────────────────────────────────────────────────
-function App() {
+// ── Activity Card ─────────────────────────────────────────────────────────────
+function ActivityCard({activity,paperwork,onDelete,onTogglePaperwork,onDeletePaperwork,onAddPaperwork,onUpload,uploading}){
+  const [expanded,setExpanded]=useState(false);
+  const [showAddPW,setShowAddPW]=useState(false);
+  const pw=paperwork.filter(p=>String(p.activityId)===String(activity.id));
+  const completed=pw.filter(p=>p.completed===true||p.completed==="TRUE"||p.completed==="true").length;
+  const hasDate=activity.startDate;
+  const upcoming=isUpcoming(activity.endDate||activity.startDate);
+
+  const dateStr=()=>{
+    const s=fmt(activity.startDate);
+    const e=activity.endDate&&activity.endDate!==activity.startDate?fmt(activity.endDate):"";
+    const t=activity.startTime?` · ${activity.startTime}`:"";
+    return e?`${s} – ${e}${t}`:`${s}${t}`;
+  };
+
+  return(
+    <div style={{background:"rgba(255,255,255,0.88)",borderRadius:18,marginBottom:12,boxShadow:"0 2px 12px rgba(60,80,40,0.07)",border:`1px solid rgba(120,160,100,${upcoming?0.2:0.1})`,opacity:upcoming?1:0.7,animation:"fadeIn 0.2s ease"}}>
+      {/* Card header */}
+      <div style={{padding:"14px 16px",cursor:"pointer",display:"flex",gap:12,alignItems:"flex-start"}} onClick={()=>setExpanded(p=>!p)}>
+        <div style={{flex:1}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+            <span style={{fontFamily:"'Lora',serif",fontSize:16,fontWeight:600,color:"#2d3a28"}}>{activity.name}</span>
+            {!upcoming&&<span style={{fontSize:10,background:"rgba(120,120,120,0.1)",color:"#888",borderRadius:10,padding:"2px 8px",fontWeight:600}}>PAST</span>}
+          </div>
+          {hasDate&&<p style={{fontSize:12,color:"#7a9a6a",marginBottom:2}}>📅 {dateStr()}</p>}
+          {activity.location&&<p style={{fontSize:12,color:"#9aaa88"}}>📍 {activity.location}</p>}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
+          {pw.length>0&&(
+            <div style={{fontSize:11,fontWeight:700,color:completed===pw.length?"#4a7a40":"#8a9a80",background:completed===pw.length?"rgba(74,122,64,0.1)":"rgba(120,160,100,0.1)",borderRadius:10,padding:"2px 8px",whiteSpace:"nowrap"}}>
+              {completed}/{pw.length} done
+            </div>
+          )}
+          <span style={{fontSize:11,color:"#bbb"}}>{expanded?"▲":"▼"}</span>
+        </div>
+      </div>
+
+      {/* Expanded content */}
+      {expanded&&(
+        <div style={{padding:"0 16px 16px",borderTop:"1px solid rgba(120,160,100,0.1)"}}>
+          {activity.notes&&<p style={{fontSize:13,color:"#7a8a70",padding:"10px 0",lineHeight:1.5}}>{activity.notes}</p>}
+
+          {/* Paperwork list */}
+          {pw.length>0&&(
+            <div style={{marginTop:10}}>
+              <p style={{fontSize:11,fontWeight:700,color:"#7a9a6a",letterSpacing:0.5,marginBottom:8}}>PAPERWORK</p>
+              {pw.map(p=><PaperworkItem key={p.id} item={{...p,completed:p.completed===true||p.completed==="TRUE"||p.completed==="true"}} onToggle={onTogglePaperwork} onDelete={onDeletePaperwork}/>)}
+            </div>
+          )}
+
+          {/* Add paperwork / toggle */}
+          {showAddPW?(
+            <AddPaperworkForm activityId={activity.id} uploading={uploading}
+              onUpload={onUpload}
+              onAdd={(pwItem)=>{onAddPaperwork(pwItem);setShowAddPW(false);}}/>
+          ):(
+            <button onClick={()=>setShowAddPW(true)}
+              style={{marginTop:10,width:"100%",padding:"8px",borderRadius:11,border:"1.5px dashed rgba(120,160,100,0.35)",background:"none",cursor:"pointer",fontSize:13,color:"#7a9a6a",fontWeight:600}}>
+              + Add paperwork
+            </button>
+          )}
+
+          {/* Delete activity */}
+          <button onClick={()=>{if(confirm("Delete this activity and all its paperwork?"))onDelete(activity.id);}}
+            style={{marginTop:10,background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#c08080",display:"block",marginLeft:"auto"}}>
+            Delete activity
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Activities Tab ────────────────────────────────────────────────────────────
+function ActivitiesTab({activities,paperwork,calendarId,onAdd,onDelete,onTogglePaperwork,onDeletePaperwork,onAddPaperwork,onUpload,uploading}){
+  const [showAdd,setShowAdd]=useState(false);
+  const sorted=[...activities].sort((a,b)=>new Date(a.startDate)-new Date(b.startDate));
+  const upcoming=sorted.filter(a=>isUpcoming(a.endDate||a.startDate));
+  const past=sorted.filter(a=>!isUpcoming(a.endDate||a.startDate)).reverse();
+  const [showPast,setShowPast]=useState(false);
+
+  return(
+    <div style={{maxWidth:520,margin:"0 auto",padding:"0 20px 60px"}}>
+      {/* Add button */}
+      <button onClick={()=>setShowAdd(true)}
+        style={{width:"100%",padding:"12px",borderRadius:16,border:"1.5px dashed rgba(120,160,100,0.4)",background:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:14,color:"#7a9a6a",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:20,transition:"all 0.15s"}}
+        onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.8)"}
+        onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.5)"}>
+        <span style={{fontSize:18}}>+</span> Add activity
+      </button>
+
+      {/* Upcoming */}
+      {upcoming.length===0&&past.length===0&&(
+        <div style={{textAlign:"center",padding:"50px 20px"}}>
+          <div style={{fontSize:48,marginBottom:14}}>📅</div>
+          <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:18,color:"#7a9a6a",marginBottom:6}}>No activities yet</p>
+          <p style={{fontSize:13,color:"#aabba0"}}>Add a camp, practice, or event above</p>
+        </div>
+      )}
+
+      {upcoming.map(a=><ActivityCard key={a.id} activity={a} paperwork={paperwork} onDelete={onDelete} onTogglePaperwork={onTogglePaperwork} onDeletePaperwork={onDeletePaperwork} onAddPaperwork={onAddPaperwork} onUpload={onUpload} uploading={uploading}/>)}
+
+      {/* Past activities */}
+      {past.length>0&&(
+        <div style={{marginTop:8}}>
+          <button onClick={()=>setShowPast(p=>!p)}
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9aaa88",fontWeight:600,display:"flex",alignItems:"center",gap:6,marginBottom:12}}>
+            {showPast?"▲":"▼"} {past.length} past activit{past.length!==1?"ies":"y"}
+          </button>
+          {showPast&&past.map(a=><ActivityCard key={a.id} activity={a} paperwork={paperwork} onDelete={onDelete} onTogglePaperwork={onTogglePaperwork} onDeletePaperwork={onDeletePaperwork} onAddPaperwork={onAddPaperwork} onUpload={onUpload} uploading={uploading}/>)}
+        </div>
+      )}
+
+      {showAdd&&<AddActivityModal onClose={()=>setShowAdd(false)} onSave={data=>{onAdd(data);setShowAdd(false);}}/>}
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App(){
   const [config,setConfig]           = useState(null);
   const [stores,setStores]           = useState([]);
   const [items,setItems]             = useState([]);
   const [history,setHistory]         = useState([]);
+  const [activities,setActivities]   = useState([]);
+  const [paperwork,setPaperwork]     = useState([]);
   const [loading,setLoading]         = useState(true);
-  const [bgSyncing,setBgSyncing]     = useState(false);  // background sync indicator
+  const [bgLabel,setBgLabel]         = useState("");
   const [apiError,setApiError]       = useState("");
   const [lastSync,setLastSync]       = useState(null);
+  const [activeTab,setActiveTab]     = useState("shopping");
   const [showHistory,setShowHistory] = useState(false);
-  const [newItemIds,setNewItemIds]   = useState(new Set()); // tracks freshly-added items for animation
+  const [uploading,setUploading]     = useState(false);
+  const [newItemIds,setNewItemIds]   = useState(new Set());
 
+  // Shopping state
   const [itemInput,setItemInput]           = useState("");
   const [selectedStoreId,setSelectedStoreId] = useState(null);
   const [itemSugs,setItemSugs]             = useState([]);
   const [showItemSugs,setShowItemSugs]     = useState(false);
-
-  const [showAddStore,setShowAddStore] = useState(false);
-  const [storeInput,setStoreInput]     = useState("");
-  const [storeSugs,setStoreSugs]       = useState([]);
-  const [draggingId,setDraggingId]     = useState(null);
+  const [showAddStore,setShowAddStore]     = useState(false);
+  const [storeInput,setStoreInput]         = useState("");
+  const [storeSugs,setStoreSugs]           = useState([]);
+  const [draggingId,setDraggingId]         = useState(null);
   const storeInputRef = useRef(null);
   const configRef     = useRef(null);
 
   // Load config
   useEffect(()=>{
-    const cfg = loadConfig();
-    if(cfg.scriptUrl && cfg.password){ configRef.current=cfg; setConfig(cfg); }
+    const cfg=loadConfig();
+    if(cfg.scriptUrl&&cfg.password){configRef.current=cfg;setConfig(cfg);}
     else setLoading(false);
   },[]);
 
-  // Apply server data and update cache
-  const applyData = useCallback((data)=>{
-    if(data.stores!==undefined) setStores(data.stores);
-    if(data.items !==undefined) setItems(data.items);
-    if(data.history!==undefined) setHistory(data.history);
+  const applyData=useCallback((data)=>{
+    if(data.stores!==undefined)    setStores(data.stores);
+    if(data.items!==undefined)     setItems(data.items);
+    if(data.history!==undefined)   setHistory(data.history);
+    if(data.activities!==undefined)setActivities(data.activities);
+    if(data.paperwork!==undefined) setPaperwork(data.paperwork);
     saveCache(data);
     setLastSync(new Date());
     setApiError("");
   },[]);
 
-  // Full fetch (background — never blocks UI)
-  const fetchAll = useCallback(async (cfg)=>{
-    cfg = cfg || configRef.current;
-    if(!cfg) return;
-    try {
-      setBgSyncing(true);
-      const data = await api(cfg.scriptUrl, cfg.password, "getAll");
-      applyData(data);
-    } catch(e){ setApiError(e.message); }
-    finally { setBgSyncing(false); }
+  const fetchAll=useCallback(async(cfg,hasCached=false)=>{
+    cfg=cfg||configRef.current;
+    if(!cfg)return;
+    setBgLabel("Syncing…");
+    try{
+      const data=await api(cfg.scriptUrl,cfg.password,"getAll");
+      applyData(data); setApiError("");
+    }catch(e){
+      if(hasCached){
+        setTimeout(async()=>{
+          try{const data=await api(cfg.scriptUrl,cfg.password,"getAll");applyData(data);setApiError("");}catch(_){}
+        },3000);
+      }else{setApiError(e.message);}
+    }finally{setBgLabel("");}
   },[applyData]);
 
-  // On config set: load cache instantly, fetch fresh in background
   useEffect(()=>{
-    if(!config) return;
-    configRef.current = config;
-    const cached = loadCache();
-    if(cached){
-      // Show cached data immediately — no spinner
-      if(cached.stores)  setStores(cached.stores);
-      if(cached.items)   setItems(cached.items);
-      if(cached.history) setHistory(cached.history);
-      setLoading(false);
-      // Refresh quietly in background
-      fetchAll(config);
-    } else {
-      // First ever load — show spinner
-      setLoading(true);
-      fetchAll(config).finally(()=>setLoading(false));
-    }
+    if(!config)return;
+    configRef.current=config;
+    const cached=loadCache();
+    if(cached){applyData(cached);setLoading(false);fetchAll(config,true);}
+    else{setLoading(true);fetchAll(config,false).finally(()=>setLoading(false));}
   },[config]);
 
-  // Poll every 12s in background
   useEffect(()=>{
-    if(!config) return;
-    const t = setInterval(()=>fetchAll(), 12000);
+    if(!config)return;
+    const t=setInterval(()=>fetchAll(null,true),12000);
     return()=>clearInterval(t);
   },[config,fetchAll]);
 
-  // Default store selection
   useEffect(()=>{
-    if(stores.length>0&&(!selectedStoreId||!stores.find(s=>s.id===selectedStoreId)))
-      setSelectedStoreId(stores[0].id);
-    if(stores.length===0) setSelectedStoreId(null);
+    if(stores.length>0&&(!selectedStoreId||!stores.find(s=>s.id===selectedStoreId)))setSelectedStoreId(stores[0].id);
+    if(stores.length===0)setSelectedStoreId(null);
   },[stores]);
 
-  // Autocomplete
   useEffect(()=>{
     if(!itemInput.trim()){setItemSugs([]);return;}
     const q=itemInput.toLowerCase();
     setItemSugs(history.filter(h=>h.toLowerCase().startsWith(q)&&h.toLowerCase()!==q).slice(0,5));
   },[itemInput,history]);
+
   useEffect(()=>{
     if(!storeInput.trim()){setStoreSugs([]);return;}
     const q=storeInput.toLowerCase();
     setStoreSugs(COMMON_STORES.filter(s=>s.toLowerCase().includes(q)&&!stores.find(st=>st.name.toLowerCase()===s.toLowerCase())).slice(0,6));
   },[storeInput,stores]);
 
-  // Background API call — applies server response when it arrives
-  const bgAct = useCallback(async (action, extra)=>{
-    const cfg = configRef.current;
-    if(!cfg) return;
-    try {
-      setBgSyncing(true);
-      const data = await api(cfg.scriptUrl, cfg.password, action, extra);
-      applyData(data);
-    } catch(e){ setApiError(e.message); }
-    finally { setBgSyncing(false); }
+  const bgAct=useCallback(async(action,extra)=>{
+    const cfg=configRef.current; if(!cfg)return;
+    setBgLabel("Saving…");
+    try{const data=await api(cfg.scriptUrl,cfg.password,action,extra);applyData(data);}
+    catch(e){setApiError(e.message);}
+    finally{setBgLabel("");}
   },[applyData]);
 
-  // ── OPTIMISTIC MUTATIONS ──────────────────────────────────────────────────
-
-  const addStore = useCallback(async (name)=>{
-    const t=name.trim();
-    if(!t||stores.find(s=>s.name.toLowerCase()===t.toLowerCase())) return;
+  // ── Shopping actions (optimistic) ──────────────────────────────────────────
+  const addStore=useCallback(async(name)=>{
+    const t=name.trim(); if(!t||stores.find(s=>s.name.toLowerCase()===t.toLowerCase()))return;
     const ns={id:uid(),name:t,color:STORE_COLORS[stores.length%STORE_COLORS.length]};
-    // Optimistic
-    setStores(p=>[...p,ns]);
-    setSelectedStoreId(ns.id);
+    setStores(p=>[...p,ns]); setSelectedStoreId(ns.id);
     setStoreInput("");setStoreSugs([]);setShowAddStore(false);
-    // Background save
-    await bgAct("addStore", ns);
+    await bgAct("addStore",ns);
   },[stores,bgAct]);
 
-  const deleteStore = useCallback(async (id)=>{
-    if(!confirm("Remove this store? Items in it will be deleted too.")) return;
-    // Optimistic
-    setStores(p=>p.filter(s=>s.id!==id));
-    setItems(p=>p.filter(i=>i.storeId!==id));
+  const deleteStore=useCallback(async(id)=>{
+    if(!confirm("Remove this store? Items in it will be deleted too."))return;
+    setStores(p=>p.filter(s=>s.id!==id)); setItems(p=>p.filter(i=>i.storeId!==id));
     await bgAct("removeStore",{id});
   },[bgAct]);
 
-  const addItem = useCallback(async (name)=>{
-    const t=name.trim();
-    if(!t||!selectedStoreId) return;
-    // Clear input immediately
+  const addItem=useCallback(async(name)=>{
+    const t=name.trim(); if(!t||!selectedStoreId)return;
     setItemInput("");setItemSugs([]);setShowItemSugs(false);
-
     const existing=items.find(i=>i.name.toLowerCase()===t.toLowerCase()&&i.storeId===selectedStoreId);
     if(existing){
-      // Optimistic increment
       setItems(p=>p.map(i=>i.id===existing.id?{...i,count:Number(i.count)+1}:i));
       await bgAct("updateItem",{id:existing.id,updates:{count:Number(existing.count)+1}});
-    } else {
-      const newItem={id:uid(),name:t,count:1,emoji:itemEmoji(t),storeId:selectedStoreId,addedAt:Date.now(),_pending:true};
-      // Optimistic add — mark pending so a dot shows while saving
-      setItems(p=>[...p,newItem]);
-      setNewItemIds(s=>new Set([...s,newItem.id]));
-      setTimeout(()=>setNewItemIds(s=>{const n=new Set(s);n.delete(newItem.id);return n;}),1500);
-      // Update history locally
+    }else{
+      const ni={id:uid(),name:t,count:1,emoji:itemEmoji(t),storeId:selectedStoreId,addedAt:Date.now(),_pending:true};
+      setItems(p=>[...p,ni]);
+      setNewItemIds(s=>new Set([...s,ni.id]));
+      setTimeout(()=>setNewItemIds(s=>{const n=new Set(s);n.delete(ni.id);return n;}),1500);
       setHistory(p=>[t,...p.filter(h=>h.toLowerCase()!==t.toLowerCase())].slice(0,80));
-      await bgAct("addItem",{...newItem,_pending:undefined});
+      await bgAct("addItem",{...ni,_pending:undefined});
     }
   },[items,selectedStoreId,bgAct]);
 
-  const removeItem = useCallback(async id=>{
-    setItems(p=>p.filter(i=>i.id!==id));
-    await bgAct("removeItem",{id});
+  const removeItem  =useCallback(async id=>{setItems(p=>p.filter(i=>i.id!==id));await bgAct("removeItem",{id});},[bgAct]);
+  const increment   =useCallback(async id=>{setItems(p=>p.map(i=>i.id===id?{...i,count:Number(i.count)+1}:i));const it=items.find(i=>i.id===id);if(it)await bgAct("updateItem",{id,updates:{count:Number(it.count)+1}});},[items,bgAct]);
+  const decrement   =useCallback(async id=>{const it=items.find(i=>i.id===id);if(!it||Number(it.count)<=1)return;setItems(p=>p.map(i=>i.id===id?{...i,count:Number(i.count)-1}:i));await bgAct("updateItem",{id,updates:{count:Number(it.count)-1}});},[items,bgAct]);
+  const moveItem    =useCallback(async(id,storeId)=>{setItems(p=>p.map(i=>i.id===id?{...i,storeId}:i));await bgAct("moveItem",{id,storeId});},[bgAct]);
+  const removeHistEntry=useCallback(async name=>{setHistory(p=>p.filter(h=>h!==name));await bgAct("removeHistory",{name});},[bgAct]);
+  const clearHistAll=useCallback(async()=>{setHistory([]);setShowHistory(false);await bgAct("clearHistory");},[bgAct]);
+
+  // ── Activity actions ───────────────────────────────────────────────────────
+  const addActivity=useCallback(async(data)=>{
+    const calendarId=configRef.current?.calendarId||"";
+    await bgAct("addActivity",{...data,calendarId});
   },[bgAct]);
 
-  const increment = useCallback(async id=>{
-    setItems(p=>p.map(i=>i.id===id?{...i,count:Number(i.count)+1}:i));
-    const item=items.find(i=>i.id===id);
-    if(item) await bgAct("updateItem",{id,updates:{count:Number(item.count)+1}});
-  },[items,bgAct]);
-
-  const decrement = useCallback(async id=>{
-    const item=items.find(i=>i.id===id);
-    if(!item||Number(item.count)<=1) return;
-    setItems(p=>p.map(i=>i.id===id?{...i,count:Number(i.count)-1}:i));
-    await bgAct("updateItem",{id,updates:{count:Number(item.count)-1}});
-  },[items,bgAct]);
-
-  const moveItem = useCallback(async (id,storeId)=>{
-    setItems(p=>p.map(i=>i.id===id?{...i,storeId}:i));
-    await bgAct("moveItem",{id,storeId});
+  const deleteActivity=useCallback(async(id)=>{
+    const calendarId=configRef.current?.calendarId||"";
+    setActivities(p=>p.filter(a=>a.id!==id));
+    setPaperwork(p=>p.filter(pw=>String(pw.activityId)!==String(id)));
+    await bgAct("removeActivity",{id,calendarId});
   },[bgAct]);
 
-  const removeHistEntry = useCallback(async name=>{
-    setHistory(p=>p.filter(h=>h!==name));
-    await bgAct("removeHistory",{name});
+  const addPaperwork=useCallback(async(data)=>{
+    setPaperwork(p=>[...p,{...data,completed:false}]);
+    await bgAct("addPaperwork",data);
   },[bgAct]);
 
-  const clearHistAll = useCallback(async ()=>{
-    setHistory([]);
-    setShowHistory(false);
-    await bgAct("clearHistory");
+  const togglePaperwork=useCallback(async(id,completed)=>{
+    setPaperwork(p=>p.map(pw=>pw.id===id?{...pw,completed}:pw));
+    await bgAct("updatePaperwork",{id,updates:{completed}});
   },[bgAct]);
+
+  const deletePaperwork=useCallback(async(id)=>{
+    setPaperwork(p=>p.filter(pw=>pw.id!==id));
+    await bgAct("removePaperwork",{id});
+  },[bgAct]);
+
+  const uploadFile=useCallback(async(file,label,activityId)=>{
+    setUploading(true);
+    try{
+      const cfg=configRef.current; if(!cfg)return null;
+      const reader=new FileReader();
+      const b64=await new Promise((res,rej)=>{reader.onload=e=>res(e.target.result.split(",")[1]);reader.onerror=rej;reader.readAsDataURL(file);});
+      const result=await api(cfg.scriptUrl,cfg.password,"uploadFile",{fileData:b64,mimeType:file.type,fileName:file.name});
+      if(result.error){alert("Upload failed: "+result.error);return null;}
+      return result.url;
+    }catch(e){alert("Upload failed: "+e.message);return null;}
+    finally{setUploading(false);}
+  },[]);
 
   const selectedStore=stores.find(s=>s.id===selectedStoreId);
   const syncTime=lastSync?lastSync.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—";
 
-  if(!config) return <SetupScreen onComplete={cfg=>{setConfig(cfg);setLoading(true);}}/>;
-
-  if(loading) return(
+  if(!config)return<SetupScreen onComplete={cfg=>{setConfig(cfg);setLoading(true);}}/>;
+  if(loading)return(
     <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0ede6 0%,#e8f0e0 60%,#dde8d0 100%)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
       <div style={{width:36,height:36,border:"3px solid rgba(74,122,64,0.2)",borderTopColor:"#4a7a40",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-      <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:16,color:"#7a9a6a"}}>Loading your lists…</p>
+      <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:16,color:"#7a9a6a"}}>Loading…</p>
     </div>
   );
 
   return(<>
     {showHistory&&<HistoryModal history={history} onRemove={removeHistEntry} onClearAll={clearHistAll} onClose={()=>setShowHistory(false)}/>}
 
-    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0ede6 0%,#e8f0e0 60%,#dde8d0 100%)",paddingBottom:60}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0ede6 0%,#e8f0e0 60%,#dde8d0 100%)"}}>
 
       {/* Header */}
-      <div style={{maxWidth:500,margin:"0 auto",padding:"32px 20px 16px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <div style={{maxWidth:520,margin:"0 auto",padding:"28px 20px 0"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
           <div>
-            <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:12,color:"#7a9a6a",marginBottom:2}}>our shared</p>
-            <h1 style={{fontFamily:"'Lora',serif",fontSize:29,fontWeight:600,color:"#2d3a28",lineHeight:1}}>Shopping Lists</h1>
-            {items.length>0&&<p style={{fontSize:12,color:"#7a8a70",marginTop:5}}>{stores.length} store{stores.length!==1?"s":""} · {items.length} item{items.length!==1?"s":""}</p>}
+            <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:12,color:"#7a9a6a",marginBottom:2}}>our</p>
+            <h1 style={{fontFamily:"'Lora',serif",fontSize:28,fontWeight:600,color:"#2d3a28",lineHeight:1}}>Family App</h1>
           </div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
             <div style={{background:"rgba(74,122,64,0.12)",borderRadius:20,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:5}}>
-              {bgSyncing
-                ?<div style={{width:8,height:8,border:"1.5px solid #4a7a40",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.6s linear infinite"}}/>
-                :<div style={{width:6,height:6,borderRadius:"50%",background:"#4a7a40",animation:"pulse 2s infinite"}}/>}
-              <span style={{fontSize:11,color:"#4a7a40",fontWeight:700}}>{bgSyncing?"Saving…":"Synced"}</span>
+              {bgLabel?<div style={{width:8,height:8,border:"1.5px solid #4a7a40",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.6s linear infinite"}}/>:<div style={{width:6,height:6,borderRadius:"50%",background:"#4a7a40",animation:"pulse 2s infinite"}}/>}
+              <span style={{fontSize:11,color:"#4a7a40",fontWeight:700}}>{bgLabel||"Synced"}</span>
             </div>
             <p style={{fontSize:10,color:"#aabba0"}}>{syncTime}</p>
-            <button onClick={()=>setShowHistory(true)} style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(120,160,100,0.25)",borderRadius:10,padding:"5px 10px",cursor:"pointer",fontSize:11,color:"#7a9a6a",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
-              📋 History
-            </button>
+            {activeTab==="shopping"&&<button onClick={()=>setShowHistory(true)} style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(120,160,100,0.25)",borderRadius:10,padding:"5px 10px",cursor:"pointer",fontSize:11,color:"#7a9a6a",fontWeight:600}}>📋 History</button>}
           </div>
         </div>
-        {apiError&&<p style={{marginTop:8,fontSize:12,color:"#c05050",background:"rgba(200,80,80,0.08)",padding:"6px 12px",borderRadius:8}}>⚠️ {apiError}</p>}
+
+        {apiError&&<p style={{fontSize:12,color:"#c05050",background:"rgba(200,80,80,0.08)",padding:"6px 12px",borderRadius:8,marginBottom:10}}>⚠️ {apiError}</p>}
+
+        {/* Tab bar */}
+        <div style={{display:"flex",gap:4,background:"rgba(255,255,255,0.5)",borderRadius:14,padding:4,marginBottom:20}}>
+          {[["shopping","🛍 Shopping"],["activities","📅 Activities"]].map(([tab,label])=>(
+            <button key={tab} onClick={()=>setActiveTab(tab)}
+              style={{flex:1,padding:"9px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,transition:"all 0.15s",
+                background:activeTab===tab?"white":"transparent",
+                color:activeTab===tab?"#2d3a28":"#9aaa88",
+                boxShadow:activeTab===tab?"0 2px 8px rgba(60,80,40,0.1)":"none"}}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Add Item Bar */}
-      {stores.length>0&&(
-        <div style={{maxWidth:500,margin:"0 auto",padding:"0 20px 18px",position:"relative",zIndex:20}}>
-          <div style={{background:"rgba(255,255,255,0.88)",backdropFilter:"blur(8px)",borderRadius:18,padding:"10px 10px 10px 16px",boxShadow:"0 4px 20px rgba(60,80,40,0.1)",border:"1.5px solid rgba(120,160,100,0.2)"}}>
-            <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-              {stores.map(s=>(
-                <button key={s.id} onClick={()=>setSelectedStoreId(s.id)}
-                  style={{padding:"3px 11px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,transition:"all 0.15s",background:selectedStoreId===s.id?s.color:`rgba(${hexToRgb(s.color)},0.1)`,color:selectedStoreId===s.id?"white":s.color}}>
-                  {storeEmoji(s.name)} {s.name}
-                </button>
-              ))}
+      {/* Shopping tab */}
+      {activeTab==="shopping"&&(<>
+        {stores.length>0&&(
+          <div style={{maxWidth:520,margin:"0 auto",padding:"0 20px 18px",position:"relative",zIndex:20}}>
+            <div style={{background:"rgba(255,255,255,0.88)",backdropFilter:"blur(8px)",borderRadius:18,padding:"10px 10px 10px 16px",boxShadow:"0 4px 20px rgba(60,80,40,0.1)",border:"1.5px solid rgba(120,160,100,0.2)"}}>
+              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                {stores.map(s=><button key={s.id} onClick={()=>setSelectedStoreId(s.id)} style={{padding:"3px 11px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,transition:"all 0.15s",background:selectedStoreId===s.id?s.color:`rgba(${hexToRgb(s.color)},0.1)`,color:selectedStoreId===s.id?"white":s.color}}>{storeEmoji(s.name)} {s.name}</button>)}
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input value={itemInput} onChange={e=>{setItemInput(e.target.value);setShowItemSugs(true);}} onKeyDown={e=>{if(e.key==="Enter")addItem(itemInput);if(e.key==="Escape")setShowItemSugs(false);}} onFocus={()=>setShowItemSugs(true)}
+                  placeholder={selectedStoreId?"Add an item…":"Select a store above"} disabled={!selectedStoreId}
+                  style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,color:"#2d3a28"}}/>
+                <button onClick={()=>addItem(itemInput)} disabled={!selectedStoreId||!itemInput.trim()}
+                  style={{background:selectedStore?selectedStore.color:"#ccc",color:"white",border:"none",borderRadius:12,padding:"9px 16px",fontSize:14,fontWeight:700,cursor:selectedStoreId?"pointer":"not-allowed",whiteSpace:"nowrap"}}>Add</button>
+              </div>
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <input value={itemInput}
-                onChange={e=>{setItemInput(e.target.value);setShowItemSugs(true);}}
-                onKeyDown={e=>{if(e.key==="Enter")addItem(itemInput);if(e.key==="Escape")setShowItemSugs(false);}}
-                onFocus={()=>setShowItemSugs(true)}
-                placeholder={selectedStoreId?"Add an item…":"Select a store above"} disabled={!selectedStoreId}
-                style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,color:"#2d3a28"}}/>
-              <button onClick={()=>addItem(itemInput)} disabled={!selectedStoreId||!itemInput.trim()}
-                style={{background:selectedStore?selectedStore.color:"#ccc",color:"white",border:"none",borderRadius:12,padding:"9px 16px",fontSize:14,fontWeight:700,cursor:selectedStoreId?"pointer":"not-allowed",whiteSpace:"nowrap",transition:"all 0.15s"}}>Add</button>
-            </div>
-          </div>
-          {showItemSugs&&itemSugs.length>0&&(
-            <div style={{position:"absolute",left:20,right:20,top:"calc(100% - 8px)",background:"white",borderRadius:"0 0 14px 14px",boxShadow:"0 8px 24px rgba(60,80,40,0.12)",border:"1px solid rgba(120,160,100,0.2)",borderTop:"none",overflow:"hidden",animation:"slideDown 0.15s ease",zIndex:30}}>
-              {itemSugs.map((s,i)=>(
-                <div key={i} onClick={()=>addItem(s)}
-                  style={{padding:"10px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,fontSize:14,color:"#2d3a28",borderBottom:i<itemSugs.length-1?"1px solid #f0f5ec":"none"}}
-                  onMouseEnter={e=>e.currentTarget.style.background="#f5f8f2"}
-                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <span>{itemEmoji(s)}</span><span style={{flex:1}}>{s}</span>
-                  <span style={{fontSize:11,color:"#bbb"}}>↩</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Store Sections */}
-      <div style={{maxWidth:500,margin:"0 auto",padding:"0 20px"}} onClick={()=>{setShowItemSugs(false);setStoreSugs([]);}}>
-        {stores.length===0&&(
-          <div style={{textAlign:"center",padding:"50px 20px"}}>
-            <div style={{fontSize:48,marginBottom:14}}>🛍</div>
-            <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:18,color:"#7a9a6a",marginBottom:6}}>No stores yet</p>
-            <p style={{fontSize:13,color:"#aabba0",marginBottom:20}}>Add your first store below</p>
-          </div>
-        )}
-
-        {stores.map(store=>(
-          <StoreSection key={store.id} store={store} color={store.color}
-            items={items.filter(i=>i.storeId===store.id)} stores={stores}
-            onRemoveItem={removeItem} onIncrement={increment} onDecrement={decrement}
-            onMoveItem={moveItem} onDeleteStore={deleteStore}
-            draggingId={draggingId} onDragStart={setDraggingId} onDragEnd={()=>setDraggingId(null)}
-            onDrop={sid=>{if(draggingId)moveItem(draggingId,sid);setDraggingId(null);}}
-            newItemIds={newItemIds}/>
-        ))}
-
-        {!showAddStore?(
-          <button onClick={()=>{setShowAddStore(true);setTimeout(()=>storeInputRef.current?.focus(),50);}}
-            style={{width:"100%",padding:"12px",borderRadius:16,border:"1.5px dashed rgba(120,160,100,0.4)",background:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:14,color:"#7a9a6a",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all 0.15s"}}
-            onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.8)"}
-            onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.5)"}>
-            <span style={{fontSize:18}}>+</span> Add a store
-          </button>
-        ):(
-          <div style={{position:"relative"}}>
-            <div style={{background:"rgba(255,255,255,0.92)",borderRadius:16,padding:"12px 14px",boxShadow:"0 4px 16px rgba(60,80,40,0.1)",border:"1.5px solid rgba(120,160,100,0.25)",display:"flex",gap:8,alignItems:"center"}}>
-              <span style={{fontSize:20}}>{storeEmoji(storeInput)||"🛍"}</span>
-              <input ref={storeInputRef} value={storeInput} onChange={e=>setStoreInput(e.target.value)}
-                onKeyDown={e=>{if(e.key==="Enter")addStore(storeInput);if(e.key==="Escape"){setShowAddStore(false);setStoreInput("");}}}
-                placeholder="Store name…"
-                style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,color:"#2d3a28"}}/>
-              <button onClick={()=>addStore(storeInput)} style={{background:"#4a7a40",color:"white",border:"none",borderRadius:10,padding:"7px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Add</button>
-              <button onClick={()=>{setShowAddStore(false);setStoreInput("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#bbb"}}>✕</button>
-            </div>
-            {storeSugs.length>0&&(
-              <div style={{position:"absolute",left:0,right:0,top:"calc(100% - 2px)",background:"white",borderRadius:"0 0 14px 14px",boxShadow:"0 8px 20px rgba(0,0,0,0.1)",border:"1px solid rgba(120,160,100,0.2)",borderTop:"none",overflow:"hidden",zIndex:50,animation:"slideDown 0.15s ease"}}>
-                {storeSugs.map((s,i)=>(
-                  <div key={i} onClick={()=>addStore(s)}
-                    style={{padding:"10px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:14,color:"#2d3a28",borderBottom:"1px solid #f0f5ec"}}
-                    onMouseEnter={e=>e.currentTarget.style.background="#f5f8f2"}
-                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <span>{storeEmoji(s)}</span><span>{s}</span>
-                  </div>
-                ))}
+            {showItemSugs&&itemSugs.length>0&&(
+              <div style={{position:"absolute",left:20,right:20,top:"calc(100% - 8px)",background:"white",borderRadius:"0 0 14px 14px",boxShadow:"0 8px 24px rgba(60,80,40,0.12)",border:"1px solid rgba(120,160,100,0.2)",borderTop:"none",overflow:"hidden",zIndex:30}}>
+                {itemSugs.map((s,i)=>(<div key={i} onClick={()=>addItem(s)} style={{padding:"10px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,fontSize:14,color:"#2d3a28",borderBottom:i<itemSugs.length-1?"1px solid #f0f5ec":"none"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f8f2"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span>{itemEmoji(s)}</span><span style={{flex:1}}>{s}</span><span style={{fontSize:11,color:"#bbb"}}>↩</span></div>))}
               </div>
             )}
           </div>
         )}
 
-        <p style={{textAlign:"center",marginTop:28,fontSize:11,color:"#bbb"}}>
-          <span style={{cursor:"pointer",textDecoration:"underline"}}
-            onClick={()=>{if(confirm("Disconnect from this sheet?")){localStorage.removeItem(CFG_KEY);setConfig(null);setLoading(false);}}}>
-            Change connection settings
-          </span>
-        </p>
-      </div>
+        <div style={{maxWidth:520,margin:"0 auto",padding:"0 20px 60px"}} onClick={()=>{setShowItemSugs(false);setStoreSugs([]);}}>
+          {stores.length===0&&(<div style={{textAlign:"center",padding:"50px 20px"}}><div style={{fontSize:48,marginBottom:14}}>🛍</div><p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:18,color:"#7a9a6a",marginBottom:6}}>No stores yet</p><p style={{fontSize:13,color:"#aabba0"}}>Add your first store below</p></div>)}
+          {stores.map(store=>(<StoreSection key={store.id} store={store} color={store.color} items={items.filter(i=>i.storeId===store.id)} stores={stores} onRemoveItem={removeItem} onIncrement={increment} onDecrement={decrement} onMoveItem={moveItem} onDeleteStore={deleteStore} draggingId={draggingId} onDragStart={setDraggingId} onDragEnd={()=>setDraggingId(null)} onDrop={sid=>{if(draggingId)moveItem(draggingId,sid);setDraggingId(null);}} newItemIds={newItemIds}/>))}
+          {!showAddStore?(
+            <button onClick={()=>{setShowAddStore(true);setTimeout(()=>storeInputRef.current?.focus(),50);}} style={{width:"100%",padding:"12px",borderRadius:16,border:"1.5px dashed rgba(120,160,100,0.4)",background:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:14,color:"#7a9a6a",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.8)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.5)"}>
+              <span style={{fontSize:18}}>+</span> Add a store
+            </button>
+          ):(
+            <div style={{position:"relative"}}>
+              <div style={{background:"rgba(255,255,255,0.92)",borderRadius:16,padding:"12px 14px",boxShadow:"0 4px 16px rgba(60,80,40,0.1)",border:"1.5px solid rgba(120,160,100,0.25)",display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:20}}>{storeEmoji(storeInput)||"🛍"}</span>
+                <input ref={storeInputRef} value={storeInput} onChange={e=>setStoreInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addStore(storeInput);if(e.key==="Escape"){setShowAddStore(false);setStoreInput("");}}} placeholder="Store name…" style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,color:"#2d3a28"}}/>
+                <button onClick={()=>addStore(storeInput)} style={{background:"#4a7a40",color:"white",border:"none",borderRadius:10,padding:"7px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Add</button>
+                <button onClick={()=>{setShowAddStore(false);setStoreInput("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#bbb"}}>✕</button>
+              </div>
+              {storeSugs.length>0&&(<div style={{position:"absolute",left:0,right:0,top:"calc(100% - 2px)",background:"white",borderRadius:"0 0 14px 14px",boxShadow:"0 8px 20px rgba(0,0,0,0.1)",border:"1px solid rgba(120,160,100,0.2)",borderTop:"none",overflow:"hidden",zIndex:50}}>
+                {storeSugs.map((s,i)=>(<div key={i} onClick={()=>addStore(s)} style={{padding:"10px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:14,color:"#2d3a28",borderBottom:"1px solid #f0f5ec"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f8f2"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span>{storeEmoji(s)}</span><span>{s}</span></div>))}
+              </div>)}
+            </div>
+          )}
+          <p style={{textAlign:"center",marginTop:24,fontSize:11,color:"#bbb"}}><span style={{cursor:"pointer",textDecoration:"underline"}} onClick={()=>{if(confirm("Disconnect from this sheet?")){{localStorage.removeItem(CFG_KEY);setConfig(null);setLoading(false);}}}}>Change connection settings</span></p>
+        </div>
+      </>)}
+
+      {/* Activities tab */}
+      {activeTab==="activities"&&(
+        <ActivitiesTab
+          activities={activities} paperwork={paperwork}
+          calendarId={config?.calendarId||""}
+          onAdd={addActivity} onDelete={deleteActivity}
+          onTogglePaperwork={togglePaperwork} onDeletePaperwork={deletePaperwork}
+          onAddPaperwork={addPaperwork} onUpload={uploadFile} uploading={uploading}/>
+      )}
     </div>
   </>);
 }
