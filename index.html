@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Shopping"/>
+  <meta name="theme-color" content="#4a7a40"/>
+  <title>Shopping Lists</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#f0ede6;font-family:'DM Sans',sans-serif;overscroll-behavior:none;}
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-thumb{background:#c8d9b8;border-radius:4px;}
+    button:active{transform:scale(0.94);}
+    input::placeholder{color:#a8b898;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── Config stored in localStorage ─────────────────────────────────────────────
+const CFG_KEY = "sl-config";
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
+}
+function saveConfig(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+
+// ── API layer ─────────────────────────────────────────────────────────────────
+async function api(scriptUrl, password, action, extra = {}) {
+  const body = JSON.stringify({ password, action, ...extra });
+  const res = await fetch(scriptUrl, {
+    method: "POST",
+    // text/plain avoids CORS preflight — required for Apps Script
+    headers: { "Content-Type": "text/plain" },
+    body,
+    redirect: "follow",
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const COMMON_STORES = [
+  "Market Basket","Costco","Whole Foods","Trader Joe's","Target","Walmart",
+  "Stop & Shop","Shaw's","BJ's Wholesale","Aldi","CVS","Walgreens",
+  "Home Depot","Lowe's","Petco","Amazon","Hannaford","Star Market","Wegmans",
+];
+const STORE_COLORS = [
+  "#4a7a40","#3a6ea8","#8a5a3a","#7a3a6a","#3a7a7a",
+  "#6a7a3a","#8a3a3a","#3a5a8a","#5a6a3a","#4a6a7a",
+];
+function storeEmoji(name=""){
+  const n=name.toLowerCase();
+  if(n.includes("costco")||n.includes("bj's"))return"🏪";
+  if(n.includes("whole"))return"🌿";
+  if(n.includes("trader"))return"🌺";
+  if(n.includes("target"))return"🎯";
+  if(n.includes("walmart"))return"⭐";
+  if(n.includes("cvs")||n.includes("walgreens"))return"💊";
+  if(n.includes("home depot")||n.includes("lowe"))return"🔨";
+  if(n.includes("petco")||n.includes("petsmart"))return"🐾";
+  if(n.includes("amazon"))return"📦";
+  if(n.includes("market")||n.includes("basket")||n.includes("grocery"))return"🧺";
+  if(n.includes("aldi")||n.includes("lidl"))return"🏷";
+  return"🛍";
+}
+const EMOJI_MAP={milk:"🥛",eggs:"🥚",bread:"🍞",butter:"🧈",cheese:"🧀",chicken:"🍗",beef:"🥩",fish:"🐟",salmon:"🐟",pasta:"🍝",rice:"🍚",apple:"🍎",banana:"🍌",orange:"🍊",tomato:"🍅",onion:"🧅",garlic:"🧄",potato:"🥔",carrot:"🥕",broccoli:"🥦",spinach:"🥬",avocado:"🥑",mushroom:"🍄",coffee:"☕",tea:"🍵",juice:"🧃",wine:"🍷",beer:"🍺",yogurt:"🥛",sugar:"🍬",flour:"🌾",oil:"🫒",salt:"🧂",pepper:"🌶",soap:"🧼",shampoo:"🧴",toothpaste:"🪥",paper:"🧻",detergent:"🧴",dog:"🐾",cat:"🐾",treat:"🦴",food:"🥫",cereal:"🥣",chocolate:"🍫"};
+function itemEmoji(name=""){const n=name.toLowerCase();for(const[k,v]of Object.entries(EMOJI_MAP))if(n.includes(k))return v;return"🛒";}
+function hexToRgb(hex="#4a7a40"){return[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(",");}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+
+// ── Setup Screen ──────────────────────────────────────────────────────────────
+function SetupScreen({ onComplete }) {
+  const [url, setUrl]   = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+  const [testing, setTesting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!url.trim() || !pass.trim()) { setError("Both fields required."); return; }
+    setTesting(true); setError("");
+    try {
+      await api(url.trim(), pass.trim(), "getAll");
+      saveConfig({ scriptUrl: url.trim(), password: pass.trim() });
+      onComplete({ scriptUrl: url.trim(), password: pass.trim() });
+    } catch (e) {
+      setError(e.message === "Invalid password" ? "Wrong password." : "Couldn't connect. Check the URL.");
+    } finally { setTesting(false); }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0ede6 0%,#e8f0e0 60%,#dde8d0 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{width:"100%",maxWidth:400,background:"rgba(255,255,255,0.88)",borderRadius:24,padding:32,boxShadow:"0 8px 40px rgba(60,80,40,0.12)",border:"1px solid rgba(120,160,100,0.2)"}}>
+        <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:13,color:"#7a9a6a",marginBottom:4}}>welcome to</p>
+        <h1 style={{fontFamily:"'Lora',serif",fontSize:28,fontWeight:600,color:"#2d3a28",marginBottom:6}}>Shopping Lists</h1>
+        <p style={{fontSize:13,color:"#7a8a70",marginBottom:28,lineHeight:1.5}}>Paste your Apps Script URL and the shared password to get started. This is saved on this device only.</p>
+
+        <label style={{fontSize:12,fontWeight:700,color:"#4a7a40",letterSpacing:0.5,display:"block",marginBottom:6}}>APPS SCRIPT URL</label>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          placeholder="https://script.google.com/macros/s/…/exec"
+          style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1.5px solid rgba(120,160,100,0.25)",background:"rgba(255,255,255,0.7)",fontSize:13,fontFamily:"'DM Sans',sans-serif",color:"#2d3a28",outline:"none",marginBottom:16}}/>
+
+        <label style={{fontSize:12,fontWeight:700,color:"#4a7a40",letterSpacing:0.5,display:"block",marginBottom:6}}>PASSWORD</label>
+        <input value={pass} onChange={e=>setPass(e.target.value)} type="password"
+          onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
+          placeholder="Shared password"
+          style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1.5px solid rgba(120,160,100,0.25)",background:"rgba(255,255,255,0.7)",fontSize:15,fontFamily:"'DM Sans',sans-serif",color:"#2d3a28",outline:"none",marginBottom: error?8:20}}/>
+
+        {error && <p style={{fontSize:13,color:"#c05050",marginBottom:16}}>{error}</p>}
+
+        <button onClick={handleSubmit} disabled={testing}
+          style={{width:"100%",padding:"13px",background:testing?"#aaa":"linear-gradient(135deg,#5a8a50,#3d6e34)",color:"white",border:"none",borderRadius:14,fontSize:15,fontWeight:700,cursor:testing?"not-allowed":"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+          {testing ? "Connecting…" : "Connect →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── History Modal ─────────────────────────────────────────────────────────────
+function HistoryModal({ history, onRemove, onClearAll, onClose }) {
+  const [filter, setFilter] = useState("");
+  const inputRef = useRef(null);
+  useEffect(()=>{ inputRef.current?.focus(); },[]);
+  const visible = filter.trim() ? history.filter(h=>h.toLowerCase().includes(filter.toLowerCase())) : history;
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(30,40,25,0.45)",backdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:500,background:"linear-gradient(180deg,#f5f2eb,#edf3e5)",borderRadius:"24px 24px 0 0",boxShadow:"0 -8px 40px rgba(40,60,30,0.18)",maxHeight:"85vh",display:"flex",flexDirection:"column",animation:"slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)"}}>
+        <div style={{padding:"20px 20px 12px",borderBottom:"1px solid rgba(120,160,100,0.15)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:12,color:"#7a9a6a",marginBottom:1}}>manage</p>
+              <h2 style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600,color:"#2d3a28",lineHeight:1}}>Autocomplete History</h2>
+            </div>
+            <button onClick={onClose} style={{width:34,height:34,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.08)",cursor:"pointer",fontSize:18,color:"#666",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.8)",borderRadius:12,padding:"8px 14px",border:"1px solid rgba(120,160,100,0.2)"}}>
+            <span style={{fontSize:15,color:"#aabba0"}}>🔍</span>
+            <input ref={inputRef} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search history…"
+              style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,fontFamily:"'DM Sans',sans-serif",color:"#2d3a28"}}/>
+            {filter&&<button onClick={()=>setFilter("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#bbb"}}>✕</button>}
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10}}>
+            <p style={{fontSize:12,color:"#9aaa88",fontFamily:"'DM Sans',sans-serif"}}>{visible.length} of {history.length} entr{history.length!==1?"ies":"y"}</p>
+            {history.length>0&&<button onClick={()=>{if(confirm("Clear entire autocomplete history?"))onClearAll();}} style={{background:"none",border:"1px solid rgba(200,100,100,0.4)",color:"#c08080",borderRadius:8,padding:"4px 12px",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Clear all</button>}
+          </div>
+        </div>
+        <div style={{overflowY:"auto",flex:1,padding:"8px 20px 24px"}}>
+          {visible.length===0?(
+            <div style={{textAlign:"center",padding:"40px 20px",color:"#aabba0"}}>
+              <div style={{fontSize:36,marginBottom:10}}>🌿</div>
+              <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:16}}>{filter?"No matches":"History is empty"}</p>
+            </div>
+          ):visible.map((entry,i)=>(
+            <div key={entry+i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,marginBottom:4,background:"rgba(255,255,255,0.7)",border:"1px solid rgba(120,160,100,0.1)",animation:`fadeIn 0.15s ease ${Math.min(i,12)*0.02}s both`}}>
+              <span style={{fontSize:17,flexShrink:0}}>{itemEmoji(entry)}</span>
+              <span style={{flex:1,fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2d3a28"}}>{entry}</span>
+              <button onClick={()=>onRemove(entry)} style={{width:28,height:28,borderRadius:"50%",border:"none",background:"rgba(200,80,80,0.1)",color:"#c06060",cursor:"pointer",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(200,80,80,0.2)"}
+                onMouseLeave={e=>e.currentTarget.style.background="rgba(200,80,80,0.1)"}>✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SwipeRow ──────────────────────────────────────────────────────────────────
+function SwipeRow({ item, color, stores, onRemove, onIncrement, onDecrement, onMove, draggingId, onDragStart, onDragEnd }) {
+  const [swipeX, setSwipeX]     = useState(0);
+  const [swiping, setSwiping]   = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [showMove, setShowMove] = useState(false);
+  const startX = useRef(0); const curX = useRef(0);
+
+  const onTS = e=>{startX.current=e.touches[0].clientX;curX.current=0;setSwiping(true);};
+  const onTM = e=>{if(!swiping)return;const dx=e.touches[0].clientX-startX.current;curX.current=dx;if(dx<0)setSwipeX(Math.max(dx,-120));};
+  const onTE = ()=>{setSwiping(false);if(curX.current<-80){setRemoving(true);setTimeout(()=>onRemove(item.id),280);}else setSwipeX(0);};
+
+  return (
+    <div style={{position:"relative",overflow:"visible",marginBottom:8,opacity:removing?0:1,maxHeight:removing?0:80,transition:removing?"all 0.28s ease":"none"}}>
+      <div style={{position:"absolute",right:0,top:0,bottom:0,width:110,background:"linear-gradient(135deg,#e55,#c33)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",gap:4,zIndex:0}}>
+        <span style={{fontSize:16}}>🗑</span>
+        <span style={{color:"white",fontSize:11,fontWeight:700}}>Remove</span>
+      </div>
+      <div
+        draggable onDragStart={e=>{e.dataTransfer.effectAllowed="move";onDragStart(item.id);}} onDragEnd={onDragEnd}
+        onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
+        style={{position:"relative",zIndex:1,transform:`translateX(${swipeX}px)`,transition:swiping?"none":"transform 0.3s cubic-bezier(0.34,1.56,0.64,1)",opacity:draggingId===item.id?0.35:1,background:"rgba(255,255,255,0.93)",backdropFilter:"blur(8px)",borderRadius:14,padding:"10px 12px",display:"flex",alignItems:"center",gap:8,boxShadow:"0 2px 10px rgba(60,80,40,0.07)",border:`1px solid rgba(${hexToRgb(color)},0.18)`,cursor:"grab",userSelect:"none"}}>
+        <span style={{fontSize:13,color:"#ccc",flexShrink:0}}>⠿</span>
+        <span style={{fontSize:17,flexShrink:0}}>{item.emoji}</span>
+        <span style={{flex:1,fontFamily:"'Lora',serif",fontSize:15,color:"#2d3a28",fontWeight:500}}>{item.name}</span>
+        <div style={{position:"relative",flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();setShowMove(p=>!p);}} style={{background:"none",border:`1px solid rgba(${hexToRgb(color)},0.3)`,borderRadius:8,padding:"3px 8px",cursor:"pointer",fontSize:10,color:color,fontWeight:700,whiteSpace:"nowrap"}}>move →</button>
+          {showMove&&(
+            <div style={{position:"absolute",right:0,top:"calc(100% + 4px)",background:"white",borderRadius:12,boxShadow:"0 8px 24px rgba(0,0,0,0.13)",border:"1px solid #e8eed8",zIndex:200,minWidth:150,overflow:"hidden"}}>
+              {stores.filter(s=>s.id!==item.storeId).map(s=>(
+                <div key={s.id} onClick={e=>{e.stopPropagation();onMove(item.id,s.id);setShowMove(false);}}
+                  style={{padding:"9px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#2d3a28",borderBottom:"1px solid #f5f8f0"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#f5f8f0"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <span>{storeEmoji(s.name)}</span><span>{s.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();onDecrement(item.id);}} style={{width:26,height:26,borderRadius:"50%",border:"none",background:"#f0f5ed",color:"#4a7a40",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+          <span style={{fontWeight:700,fontSize:14,color:"#2d3a28",minWidth:18,textAlign:"center"}}>{item.count}</span>
+          <button onClick={e=>{e.stopPropagation();onIncrement(item.id);}} style={{width:26,height:26,borderRadius:"50%",border:"none",background:color,color:"white",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── StoreSection ──────────────────────────────────────────────────────────────
+function StoreSection({ store, items, stores, color, onRemoveItem, onIncrement, onDecrement, onMoveItem, onDeleteStore, draggingId, onDragStart, onDragEnd, onDrop }) {
+  const [expanded, setExpanded] = useState(true);
+  const [dragOver, setDragOver] = useState(false);
+  const total = items.reduce((a,b)=>a+Number(b.count),0);
+
+  return (
+    <div onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)}
+      onDrop={e=>{e.preventDefault();setDragOver(false);onDrop(store.id);}}
+      style={{marginBottom:14,borderRadius:18,border:dragOver?`2px dashed ${color}`:"2px solid transparent",background:dragOver?`rgba(${hexToRgb(color)},0.04)`:"transparent",padding:dragOver?6:0,transition:"all 0.2s"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 2px",cursor:"pointer"}} onClick={()=>setExpanded(p=>!p)}>
+        <div style={{width:34,height:34,borderRadius:"50%",background:`rgba(${hexToRgb(color)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{storeEmoji(store.name)}</div>
+        <span style={{fontFamily:"'Lora',serif",fontSize:17,fontWeight:600,color:"#2d3a28",flex:1}}>{store.name}</span>
+        {items.length>0?(<div style={{background:color,color:"white",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{items.length} item{items.length!==1?"s":""} · {total} qty</div>):(<span style={{fontSize:11,color:"#ccc"}}>empty</span>)}
+        <span style={{color:"#bbb",fontSize:11}}>{expanded?"▲":"▼"}</span>
+        <button onClick={e=>{e.stopPropagation();onDeleteStore(store.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"2px 4px",flexShrink:0}}>✕</button>
+      </div>
+      {expanded&&(
+        <div style={{paddingLeft:2}}>
+          {items.length===0?(<div style={{padding:"10px 16px",borderRadius:14,border:`1.5px dashed rgba(${hexToRgb(color)},0.25)`,textAlign:"center",color:"#ccc",fontSize:12,marginBottom:4}}>Drag items here · or add above</div>)
+          :items.map(item=>(<SwipeRow key={item.id} item={item} color={color} stores={stores} onRemove={onRemoveItem} onIncrement={onIncrement} onDecrement={onDecrement} onMove={onMoveItem} draggingId={draggingId} onDragStart={onDragStart} onDragEnd={onDragEnd}/>))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [config, setConfig]           = useState(null);
+  const [stores, setStores]           = useState([]);
+  const [items, setItems]             = useState([]);
+  const [history, setHistory]         = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [syncing, setSyncing]         = useState(false);
+  const [apiError, setApiError]       = useState("");
+  const [lastSync, setLastSync]       = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const [itemInput, setItemInput]         = useState("");
+  const [selectedStoreId, setSelectedStoreId] = useState(null);
+  const [itemSugs, setItemSugs]           = useState([]);
+  const [showItemSugs, setShowItemSugs]   = useState(false);
+
+  const [showAddStore, setShowAddStore] = useState(false);
+  const [storeInput, setStoreInput]     = useState("");
+  const [storeSugs, setStoreSugs]       = useState([]);
+  const [draggingId, setDraggingId]     = useState(null);
+  const storeInputRef = useRef(null);
+
+  // Load config from localStorage
+  useEffect(() => {
+    const cfg = loadConfig();
+    if (cfg.scriptUrl && cfg.password) {
+      setConfig(cfg);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch all data
+  const fetchAll = useCallback(async (cfg = config) => {
+    if (!cfg) return;
+    try {
+      const data = await api(cfg.scriptUrl, cfg.password, "getAll");
+      setStores(data.stores || []);
+      setItems(data.items || []);
+      setHistory(data.history || []);
+      setLastSync(new Date());
+      setApiError("");
+    } catch (e) {
+      setApiError(e.message);
+    }
+  }, [config]);
+
+  useEffect(() => {
+    if (!config) return;
+    setLoading(true);
+    fetchAll(config).finally(() => setLoading(false));
+  }, [config]);
+
+  // Poll every 10s
+  useEffect(() => {
+    if (!config) return;
+    const t = setInterval(() => fetchAll(), 10000);
+    return () => clearInterval(t);
+  }, [config, fetchAll]);
+
+  // Default store selection
+  useEffect(() => {
+    if (stores.length > 0 && (!selectedStoreId || !stores.find(s => s.id === selectedStoreId)))
+      setSelectedStoreId(stores[0].id);
+    if (stores.length === 0) setSelectedStoreId(null);
+  }, [stores]);
+
+  // Autocomplete
+  useEffect(() => {
+    if (!itemInput.trim()) { setItemSugs([]); return; }
+    const q = itemInput.toLowerCase();
+    setItemSugs(history.filter(h => h.toLowerCase().startsWith(q) && h.toLowerCase() !== q).slice(0, 5));
+  }, [itemInput, history]);
+
+  useEffect(() => {
+    if (!storeInput.trim()) { setStoreSugs([]); return; }
+    const q = storeInput.toLowerCase();
+    const pool = [...new Set([...COMMON_STORES])];
+    setStoreSugs(pool.filter(s => s.toLowerCase().includes(q) && !stores.find(st => st.name.toLowerCase() === s.toLowerCase())).slice(0, 6));
+  }, [storeInput, stores]);
+
+  // API action wrapper
+  const act = useCallback(async (action, extra) => {
+    setSyncing(true);
+    try {
+      const data = await api(config.scriptUrl, config.password, action, extra);
+      if (data.stores !== undefined) setStores(data.stores);
+      if (data.items  !== undefined) setItems(data.items);
+      if (data.history !== undefined) setHistory(data.history);
+      setApiError("");
+    } catch (e) { setApiError(e.message); }
+    finally { setSyncing(false); }
+  }, [config]);
+
+  const addStore = useCallback(async (name) => {
+    const t = name.trim();
+    if (!t || stores.find(s => s.name.toLowerCase() === t.toLowerCase())) return;
+    const ns = { id: uid(), name: t, color: STORE_COLORS[stores.length % STORE_COLORS.length] };
+    setSelectedStoreId(ns.id);
+    setStoreInput(""); setStoreSugs([]); setShowAddStore(false);
+    await act("addStore", ns);
+  }, [stores, act]);
+
+  const deleteStore = useCallback(async (id) => {
+    if (!confirm("Remove this store? Items in it will be deleted too.")) return;
+    await act("removeStore", { id });
+  }, [act]);
+
+  const addItem = useCallback(async (name) => {
+    const t = name.trim();
+    if (!t || !selectedStoreId) return;
+    setItemInput(""); setItemSugs([]); setShowItemSugs(false);
+    await act("addItem", { id: uid(), name: t, count: 1, emoji: itemEmoji(t), storeId: selectedStoreId, addedAt: Date.now() });
+  }, [selectedStoreId, act]);
+
+  const removeItem  = useCallback(id => act("removeItem", { id }), [act]);
+  const increment   = useCallback(id => act("updateItem", { id, updates: { count: (items.find(i=>i.id===id)?.count||1)*1+1 } }), [act, items]);
+  const decrement   = useCallback(id => { const i = items.find(x=>x.id===id); if(i&&Number(i.count)>1) act("updateItem",{id,updates:{count:Number(i.count)-1}}); }, [act, items]);
+  const moveItem    = useCallback((id, storeId) => act("moveItem", { id, storeId }), [act]);
+  const removeHistEntry = useCallback(name => act("removeHistory", { name }), [act]);
+  const clearHistAll    = useCallback(async () => { await act("clearHistory"); setShowHistory(false); }, [act]);
+
+  const selectedStore = stores.find(s => s.id === selectedStoreId);
+  const syncTime = lastSync ? lastSync.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }) : "—";
+
+  if (!config) return <SetupScreen onComplete={cfg => { setConfig(cfg); setLoading(true); }} />;
+
+  if (loading) return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0ede6 0%,#e8f0e0 60%,#dde8d0 100%)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <div style={{width:36,height:36,border:"3px solid rgba(74,122,64,0.2)",borderTopColor:"#4a7a40",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+      <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:16,color:"#7a9a6a"}}>Loading your lists…</p>
+    </div>
+  );
+
+  return (
+    <>
+      {showHistory && <HistoryModal history={history} onRemove={removeHistEntry} onClearAll={clearHistAll} onClose={()=>setShowHistory(false)}/>}
+
+      <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0ede6 0%,#e8f0e0 60%,#dde8d0 100%)",paddingBottom:60}}>
+
+        {/* Header */}
+        <div style={{maxWidth:500,margin:"0 auto",padding:"32px 20px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:12,color:"#7a9a6a",marginBottom:2}}>our shared</p>
+              <h1 style={{fontFamily:"'Lora',serif",fontSize:29,fontWeight:600,color:"#2d3a28",lineHeight:1}}>Shopping Lists</h1>
+              {items.length>0&&<p style={{fontSize:12,color:"#7a8a70",marginTop:5}}>{stores.length} store{stores.length!==1?"s":""} · {items.length} item{items.length!==1?"s":""}</p>}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
+              <div style={{background:"rgba(74,122,64,0.12)",borderRadius:20,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:5}}>
+                {syncing
+                  ? <div style={{width:8,height:8,border:"1.5px solid #4a7a40",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.6s linear infinite"}}/>
+                  : <div style={{width:6,height:6,borderRadius:"50%",background:"#4a7a40",animation:"pulse 2s infinite"}}/>}
+                <span style={{fontSize:11,color:"#4a7a40",fontWeight:700}}>{syncing?"Saving…":"Live"}</span>
+              </div>
+              <p style={{fontSize:10,color:"#aabba0"}}>synced {syncTime}</p>
+              <button onClick={()=>setShowHistory(true)} style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(120,160,100,0.25)",borderRadius:10,padding:"5px 10px",cursor:"pointer",fontSize:11,color:"#7a9a6a",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+                📋 History
+              </button>
+            </div>
+          </div>
+          {apiError && <p style={{marginTop:8,fontSize:12,color:"#c05050",background:"rgba(200,80,80,0.08)",padding:"6px 12px",borderRadius:8}}>⚠️ {apiError}</p>}
+        </div>
+
+        {/* Add Item Bar */}
+        {stores.length>0&&(
+          <div style={{maxWidth:500,margin:"0 auto",padding:"0 20px 18px",position:"relative",zIndex:20}}>
+            <div style={{background:"rgba(255,255,255,0.88)",backdropFilter:"blur(8px)",borderRadius:18,padding:"10px 10px 10px 16px",boxShadow:"0 4px 20px rgba(60,80,40,0.1)",border:"1.5px solid rgba(120,160,100,0.2)"}}>
+              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                {stores.map(s=>(
+                  <button key={s.id} onClick={()=>setSelectedStoreId(s.id)}
+                    style={{padding:"3px 11px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,transition:"all 0.15s",background:selectedStoreId===s.id?s.color:`rgba(${hexToRgb(s.color)},0.1)`,color:selectedStoreId===s.id?"white":s.color}}>
+                    {storeEmoji(s.name)} {s.name}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input value={itemInput}
+                  onChange={e=>{setItemInput(e.target.value);setShowItemSugs(true);}}
+                  onKeyDown={e=>{if(e.key==="Enter")addItem(itemInput);if(e.key==="Escape")setShowItemSugs(false);}}
+                  onFocus={()=>setShowItemSugs(true)}
+                  placeholder={selectedStoreId?"Add an item…":"Select a store above"} disabled={!selectedStoreId}
+                  style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,fontFamily:"'DM Sans',sans-serif",color:"#2d3a28"}}/>
+                <button onClick={()=>addItem(itemInput)} disabled={!selectedStoreId||!itemInput.trim()}
+                  style={{background:selectedStore?selectedStore.color:"#ccc",color:"white",border:"none",borderRadius:12,padding:"9px 16px",fontSize:14,fontWeight:700,cursor:selectedStoreId?"pointer":"not-allowed",whiteSpace:"nowrap",transition:"all 0.15s"}}>Add</button>
+              </div>
+            </div>
+            {showItemSugs&&itemSugs.length>0&&(
+              <div style={{position:"absolute",left:20,right:20,top:"calc(100% - 8px)",background:"white",borderRadius:"0 0 14px 14px",boxShadow:"0 8px 24px rgba(60,80,40,0.12)",border:"1px solid rgba(120,160,100,0.2)",borderTop:"none",overflow:"hidden",animation:"slideDown 0.15s ease",zIndex:30}}>
+                {itemSugs.map((s,i)=>(
+                  <div key={i} onClick={()=>addItem(s)}
+                    style={{padding:"10px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,fontSize:14,color:"#2d3a28",borderBottom:i<itemSugs.length-1?"1px solid #f0f5ec":"none"}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#f5f8f2"}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <span>{itemEmoji(s)}</span><span style={{flex:1}}>{s}</span>
+                    <span style={{fontSize:11,color:"#bbb"}}>↩</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Store Sections */}
+        <div style={{maxWidth:500,margin:"0 auto",padding:"0 20px"}} onClick={()=>{setShowItemSugs(false);setStoreSugs([]);}}>
+          {stores.length===0&&!loading&&(
+            <div style={{textAlign:"center",padding:"50px 20px"}}>
+              <div style={{fontSize:48,marginBottom:14}}>🛍</div>
+              <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:18,color:"#7a9a6a",marginBottom:6}}>No stores yet</p>
+              <p style={{fontSize:13,color:"#aabba0",marginBottom:20}}>Add your first store below</p>
+            </div>
+          )}
+
+          {stores.map(store=>(
+            <StoreSection key={store.id} store={store} color={store.color}
+              items={items.filter(i=>i.storeId===store.id)} stores={stores}
+              onRemoveItem={removeItem} onIncrement={increment} onDecrement={decrement}
+              onMoveItem={moveItem} onDeleteStore={deleteStore}
+              draggingId={draggingId} onDragStart={setDraggingId} onDragEnd={()=>setDraggingId(null)}
+              onDrop={sid=>{if(draggingId)moveItem(draggingId,sid);setDraggingId(null);}}/>
+          ))}
+
+          {!showAddStore?(
+            <button onClick={()=>{setShowAddStore(true);setTimeout(()=>storeInputRef.current?.focus(),50);}}
+              style={{width:"100%",padding:"12px",borderRadius:16,border:"1.5px dashed rgba(120,160,100,0.4)",background:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:14,color:"#7a9a6a",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all 0.15s"}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.8)"}
+              onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.5)"}>
+              <span style={{fontSize:18}}>+</span> Add a store
+            </button>
+          ):(
+            <div style={{position:"relative"}}>
+              <div style={{background:"rgba(255,255,255,0.92)",borderRadius:16,padding:"12px 14px",boxShadow:"0 4px 16px rgba(60,80,40,0.1)",border:"1.5px solid rgba(120,160,100,0.25)",display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:20}}>{storeEmoji(storeInput)||"🛍"}</span>
+                <input ref={storeInputRef} value={storeInput} onChange={e=>setStoreInput(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter")addStore(storeInput);if(e.key==="Escape"){setShowAddStore(false);setStoreInput("");}}}
+                  placeholder="Store name…"
+                  style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,color:"#2d3a28"}}/>
+                <button onClick={()=>addStore(storeInput)} style={{background:"#4a7a40",color:"white",border:"none",borderRadius:10,padding:"7px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Add</button>
+                <button onClick={()=>{setShowAddStore(false);setStoreInput("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#bbb"}}>✕</button>
+              </div>
+              {storeSugs.length>0&&(
+                <div style={{position:"absolute",left:0,right:0,top:"calc(100% - 2px)",background:"white",borderRadius:"0 0 14px 14px",boxShadow:"0 8px 20px rgba(0,0,0,0.1)",border:"1px solid rgba(120,160,100,0.2)",borderTop:"none",overflow:"hidden",zIndex:50,animation:"slideDown 0.15s ease"}}>
+                  {storeSugs.map((s,i)=>(
+                    <div key={i} onClick={()=>addStore(s)}
+                      style={{padding:"10px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:14,color:"#2d3a28",borderBottom:"1px solid #f0f5ec"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#f5f8f2"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <span>{storeEmoji(s)}</span><span>{s}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reset config link */}
+          <p style={{textAlign:"center",marginTop:28,fontSize:11,color:"#bbb"}}>
+            <span style={{cursor:"pointer",textDecoration:"underline"}}
+              onClick={()=>{if(confirm("Disconnect from this sheet? You'll need to re-enter the URL and password.")){localStorage.removeItem(CFG_KEY);setConfig(null);setLoading(false);}}}>
+              Change connection settings
+            </span>
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
