@@ -558,7 +558,11 @@ function App(){
   const bgAct=useCallback(async(action,extra)=>{
     const cfg=configRef.current; if(!cfg)return;
     setBgLabel("Saving…");
-    try{const data=await api(cfg.scriptUrl,cfg.password,action,extra);applyData(data);}
+    try{
+      const data=await api(cfg.scriptUrl,cfg.password,action,extra);
+      applyData(data);
+      if(data._calendarError) setApiError("Saved, but calendar error: "+data._calendarError);
+    }
     catch(e){setApiError(e.message);}
     finally{setBgLabel("");}
   },[applyData]);
