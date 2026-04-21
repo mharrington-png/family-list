@@ -1,7 +1,7 @@
 {
-  "name": "Shopping Lists",
-  "short_name": "Shopping",
-  "description": "Our shared shopping list",
+  "name": "Family App",
+  "short_name": "Family",
+  "description": "Our shared family tracker",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#f0ede6",
