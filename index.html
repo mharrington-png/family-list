@@ -1055,21 +1055,47 @@ function ShoppingTab({stores,items,history,selectedStoreId,setSelectedStoreId,on
   const storeInputRef=UR(null);
   const kanbanRef=UR(null);
 
-  // Auto-select whichever column is snapped into view
+  // Auto-select whichever column has snapped into view.
+  // Use scrollend where available (fires after snap settles),
+  // fall back to scroll + debounce for older browsers.
   UE(()=>{
     const el=kanbanRef.current;
     if(!el||stores.length===0)return;
-    const onScroll=()=>{
-      const colWidth=el.firstChild?.offsetWidth||300;
-      const pad=parseInt(getComputedStyle(el).paddingLeft)||20;
-      const idx=Math.round((el.scrollLeft)/(colWidth+14));
-      const store=stores[Math.max(0,Math.min(idx,stores.length-1))];
-      if(store) setSelectedStoreId(store.id);
+
+    const detectSnapped=()=>{
+      // Find column whose left edge is closest to the container's left edge
+      const containerLeft=el.getBoundingClientRect().left;
+      const cols=el.querySelectorAll("[data-store-id]");
+      let best=null, bestDist=Infinity;
+      cols.forEach(col=>{
+        const dist=Math.abs(col.getBoundingClientRect().left - containerLeft);
+        if(dist<bestDist){bestDist=dist;best=col;}
+      });
+      if(best){
+        const id=best.getAttribute("data-store-id");
+        setSelectedStoreId(id);
+      }
     };
-    el.addEventListener("scroll",onScroll,{passive:true});
-    // Also fire once on mount to select first visible
-    onScroll();
-    return()=>el.removeEventListener("scroll",onScroll);
+
+    let debounce=null;
+    const onScroll=()=>{
+      clearTimeout(debounce);
+      debounce=setTimeout(detectSnapped,120);
+    };
+
+    // scrollend fires once snapping has settled — most reliable
+    const supportsScrollEnd="onscrollend" in el;
+    if(supportsScrollEnd){
+      el.addEventListener("scrollend",detectSnapped,{passive:true});
+    } else {
+      el.addEventListener("scroll",onScroll,{passive:true});
+    }
+    detectSnapped();
+    return()=>{
+      el.removeEventListener("scrollend",detectSnapped);
+      el.removeEventListener("scroll",onScroll);
+      clearTimeout(debounce);
+    };
   },[stores,setSelectedStoreId]);
 
   const itemSugs = UM(()=>{
@@ -1239,7 +1265,7 @@ function ShoppingTab({stores,items,history,selectedStoreId,setSelectedStoreId,on
 
       {/* Mobile hint */}
       {isMobile && stores.length>1 && (
-        <p className="mono" style={{textAlign:"center",fontSize:10,color:"var(--muted)",marginTop:8,letterSpacing:0.5}}>↔ swipe between stores · ⠿ long-press to drag</p>
+        <p className="mono" style={{textAlign:"center",fontSize:10,color:"var(--muted)",marginTop:8,letterSpacing:0.5}}>← swipe left to remove · ↔ swipe between stores</p>
       )}
     </div>
   );
