@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Family"/>
+  <meta name="theme-color" content="#4a7a40"/>
+  <title>Family</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{height:100%;}
+    body{
+      background:var(--bg);
+      color:var(--ink);
+      font-family:var(--font-body);
+      overscroll-behavior:none;
+      transition:background 0.3s ease,color 0.3s ease;
+      -webkit-font-smoothing:antialiased;
+    }
+    ::-webkit-scrollbar{width:6px;height:6px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;}
+    button{font-family:inherit;}
+    button:active{transform:scale(0.97);}
+    input,textarea,select{font-family:inherit;color:var(--ink);}
+    input::placeholder,textarea::placeholder{color:var(--muted);}
+    input:focus,textarea:focus{outline:none;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes popIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+    /* fillMode forwards so re-renders that retrigger the animation don't strand cards at opacity:0 */
+    [data-anim="fadeIn"]{animation:fadeIn 0.2s ease forwards;}
+    [data-anim="popIn"]{animation:popIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+    [data-anim="slideUp"]{animation:slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+    .serif{font-family:var(--font-display);}
+    .ital{font-style:italic;}
+    .mono{font-family:'JetBrains Mono',monospace;}
+    /* Hide horizontal scrollbar on kanban for cleaner look */
+    .kanban-scroll{scrollbar-width:thin;}
+    .kanban-scroll::-webkit-scrollbar{height:8px;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- ─────────── Tweaks defaults ─────────── -->
+<script>
+window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "blue",
+  "fontPair": "classic",
+  "layout": "auto",
+  "dark": false,
+  "homeShows": "all",
+  "activitiesView": "timeline"
+}/*EDITMODE-END*/;
+</script>
+
+<!-- ─────────── Theme tokens ─────────── -->
+<script type="text/babel">
+const THEMES = {
+  sage: {
+    name:"Sage", accent:"#4a7a40", accent2:"#6a9a5a",
+    light:{bg:"linear-gradient(170deg,#f3f0e8 0%,#ebf0e2 60%,#dee8d2 100%)", card:"rgba(255,255,255,0.85)", ink:"#2d3a28", ink2:"#5a6a52", muted:"#a8b898", line:"rgba(120,160,100,0.18)", line2:"rgba(120,160,100,0.32)", chip:"rgba(120,160,100,0.10)", scroll:"#c8d9b8", glow:"rgba(74,122,64,0.12)"},
+    dark:{bg:"linear-gradient(170deg,#1a201a 0%,#1f2620 60%,#202b22 100%)", card:"rgba(38,46,38,0.7)", ink:"#e8eee0", ink2:"#a8b898", muted:"#6a7a62", line:"rgba(180,210,160,0.10)", line2:"rgba(180,210,160,0.20)", chip:"rgba(120,160,100,0.18)", scroll:"#2a3a26", glow:"rgba(120,180,100,0.18)"},
+  },
+  warm: {
+    name:"Warm", accent:"#b86b3a", accent2:"#d49060",
+    light:{bg:"linear-gradient(170deg,#f7f1e8 0%,#f3e8d8 60%,#ecdcc4 100%)", card:"rgba(255,250,242,0.88)", ink:"#3a2a1e", ink2:"#6a5340", muted:"#c0a888", line:"rgba(160,110,60,0.18)", line2:"rgba(160,110,60,0.30)", chip:"rgba(184,107,58,0.10)", scroll:"#d8b890", glow:"rgba(184,107,58,0.12)"},
+    dark:{bg:"linear-gradient(170deg,#1d1714 0%,#241c17 60%,#28201a 100%)", card:"rgba(46,36,28,0.72)", ink:"#f0e2d0", ink2:"#c0a888", muted:"#7a6850", line:"rgba(220,180,140,0.10)", line2:"rgba(220,180,140,0.22)", chip:"rgba(184,107,58,0.20)", scroll:"#3a2a20", glow:"rgba(220,150,90,0.18)"},
+  },
+  blue: {
+    name:"Blue", accent:"#3a6ea8", accent2:"#5a8ec8",
+    light:{bg:"linear-gradient(170deg,#eef2f6 0%,#e4ecf2 60%,#d6e2ec 100%)", card:"rgba(255,255,255,0.88)", ink:"#1f2d3d", ink2:"#48607a", muted:"#a4b4c4", line:"rgba(80,120,170,0.18)", line2:"rgba(80,120,170,0.30)", chip:"rgba(58,110,168,0.10)", scroll:"#b8c8d8", glow:"rgba(58,110,168,0.14)"},
+    dark:{bg:"linear-gradient(170deg,#161a20 0%,#1a2028 60%,#1d2632 100%)", card:"rgba(34,42,52,0.72)", ink:"#dfe8f0", ink2:"#a4b4c4", muted:"#5a6e80", line:"rgba(160,200,240,0.10)", line2:"rgba(160,200,240,0.22)", chip:"rgba(90,142,200,0.20)", scroll:"#2a3340", glow:"rgba(90,142,200,0.20)"},
+  },
+  mono: {
+    name:"Mono", accent:"#2d3a28", accent2:"#4a5640",
+    light:{bg:"linear-gradient(170deg,#f4f3f0 0%,#ecebe6 60%,#e0dfd8 100%)", card:"rgba(255,255,255,0.92)", ink:"#1a1a18", ink2:"#4a4a44", muted:"#a8a8a0", line:"rgba(40,40,38,0.10)", line2:"rgba(40,40,38,0.22)", chip:"rgba(40,40,38,0.06)", scroll:"#cccac4", glow:"rgba(40,40,38,0.08)"},
+    dark:{bg:"linear-gradient(170deg,#0f0f0e 0%,#15151a 60%,#1a1a18 100%)", card:"rgba(30,30,28,0.85)", ink:"#ecebe4", ink2:"#a8a8a0", muted:"#5e5e58", line:"rgba(220,220,210,0.10)", line2:"rgba(220,220,210,0.20)", chip:"rgba(220,220,210,0.06)", scroll:"#2a2a26", glow:"rgba(220,220,210,0.10)"},
+  },
+};
+const FONT_PAIRS = {
+  editorial: {display:"'Fraunces',serif", body:"'DM Sans',system-ui,sans-serif", name:"Editorial"},
+  classic:   {display:"'Lora',Georgia,serif", body:"'DM Sans',system-ui,sans-serif", name:"Classic"},
+  modern:    {display:"'Geist','Inter',sans-serif", body:"'Geist','Inter',system-ui,sans-serif", name:"Modern"},
+  refined:   {display:"'Instrument Serif',serif", body:"'Inter',system-ui,sans-serif", name:"Refined"},
+};
+window.THEMES = THEMES;
+window.FONT_PAIRS = FONT_PAIRS;
+
+function applyTheme(theme, fontPair, dark){
+  const t = THEMES[theme] || THEMES.sage;
+  const c = dark ? t.dark : t.light;
+  const f = FONT_PAIRS[fontPair] || FONT_PAIRS.editorial;
+  const r = document.documentElement.style;
+  r.setProperty("--bg", c.bg);
+  r.setProperty("--card", c.card);
+  r.setProperty("--ink", c.ink);
+  r.setProperty("--ink2", c.ink2);
+  r.setProperty("--muted", c.muted);
+  r.setProperty("--line", c.line);
+  r.setProperty("--line2", c.line2);
+  r.setProperty("--chip", c.chip);
+  r.setProperty("--scroll", c.scroll);
+  r.setProperty("--glow", c.glow);
+  r.setProperty("--accent", t.accent);
+  r.setProperty("--accent2", t.accent2);
+  r.setProperty("--font-display", f.display);
+  r.setProperty("--font-body", f.body);
+  // theme-color for mobile chrome
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute("content", t.accent);
+}
+window.applyTheme = applyTheme;
+applyTheme(window.TWEAK_DEFAULTS.theme, window.TWEAK_DEFAULTS.fontPair, window.TWEAK_DEFAULTS.dark);
+</script>
+
+<!-- ─────────── Helpers ─────────── -->
+<script type="text/babel">
+const CFG_KEY   = "fa-config";
+const CACHE_KEY = "fa-cache-v3";
+const TWK_KEY   = "fa-tweaks";
+
+const loadConfig = () => { try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catch{return{};} };
+const saveConfig = c => localStorage.setItem(CFG_KEY,JSON.stringify(c));
+const loadCache  = () => { try{return JSON.parse(localStorage.getItem(CACHE_KEY));}catch{return null;} };
+const saveCache  = d => { try{localStorage.setItem(CACHE_KEY,JSON.stringify(d));}catch{} };
+
+async function api(scriptUrl, password, action, extra={}){
+  const res = await fetch(scriptUrl,{
+    method:"POST", headers:{"Content-Type":"text/plain"},
+    body: JSON.stringify({password,action,...extra}), redirect:"follow",
+  });
+  const json = await res.json();
+  if(json.error) throw new Error(json.error);
+  return json;
+}
+
+const STORE_HUES = [128, 30, 210, 320, 180, 80, 0, 260, 50, 160];
+const STORE_COLORS = STORE_HUES.map(h => `oklch(58% 0.13 ${h})`);
+const COMMON_STORES = ["Market Basket","Costco","Whole Foods","Trader Joe's","Target","Walmart","Stop & Shop","Shaw's","BJ's Wholesale","Aldi","CVS","Walgreens","Home Depot","Lowe's","Petco","Hannaford","Star Market","Wegmans"];
+
+function storeIcon(n=""){
+  n=n.toLowerCase();
+  if(n.includes("costco")||n.includes("bj"))return"🏪";
+  if(n.includes("whole"))return"🌿";
+  if(n.includes("trader"))return"🌺";
+  if(n.includes("target"))return"◎";
+  if(n.includes("walmart"))return"★";
+  if(n.includes("cvs")||n.includes("walgreens"))return"⊕";
+  if(n.includes("home depot")||n.includes("lowe"))return"⚒";
+  if(n.includes("petco")||n.includes("pet"))return"🐾";
+  if(n.includes("market")||n.includes("basket"))return"🧺";
+  if(n.includes("aldi"))return"◇";
+  return n.slice(0,1).toUpperCase();
+}
+const EMOJI_MAP = {milk:"🥛",eggs:"🥚",bread:"🍞",butter:"🧈",cheese:"🧀",chicken:"🍗",beef:"🥩",fish:"🐟",pasta:"🍝",rice:"🍚",apple:"🍎",banana:"🍌",orange:"🍊",tomato:"🍅",onion:"🧅",garlic:"🧄",potato:"🥔",carrot:"🥕",broccoli:"🥦",avocado:"🥑",coffee:"☕",tea:"🍵",juice:"🧃",wine:"🍷",beer:"🍺",yogurt:"🥛",sugar:"🍬",flour:"🌾",oil:"🫒",salt:"🧂",soap:"🧼",shampoo:"🧴",paper:"🧻",dog:"🐾",cat:"🐾",treat:"🦴",cereal:"🥣",chocolate:"🍫"};
+function itemEmoji(n=""){const l=n.toLowerCase();for(const[k,v]of Object.entries(EMOJI_MAP))if(l.includes(k))return v;return"·";}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function fmt(d){if(!d)return"";const x=new Date(d+"T12:00:00");return x.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});}
+function fmtShort(d){if(!d)return"";const x=new Date(d+"T12:00:00");return x.toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+function isUpcoming(d){if(!d)return true;return new Date(d+"T23:59:59")>=new Date();}
+function daysUntil(d){if(!d)return null;const ms=new Date(d+"T12:00:00")-new Date();return Math.ceil(ms/(1000*60*60*24));}
+function relDay(n){if(n===null)return"";if(n<0)return`${-n}d ago`;if(n===0)return"today";if(n===1)return"tomorrow";if(n<7)return`in ${n}d`;if(n<30)return`in ${Math.round(n/7)}w`;return`in ${Math.round(n/30)}mo`;}
+
+window.api=api;window.uid=uid;window.fmt=fmt;window.fmtShort=fmtShort;window.isUpcoming=isUpcoming;window.daysUntil=daysUntil;window.relDay=relDay;
+window.storeIcon=storeIcon;window.itemEmoji=itemEmoji;window.STORE_COLORS=STORE_COLORS;window.COMMON_STORES=COMMON_STORES;
+window.loadConfig=loadConfig;window.saveConfig=saveConfig;window.loadCache=loadCache;window.saveCache=saveCache;
+window.CFG_KEY=CFG_KEY;window.TWK_KEY=TWK_KEY;
+</script>
+
+</body>
+
+<!-- ─────────── All app code (merged) ─────────── -->
+<script type="text/babel">
+// ── Hook aliases (all variants used across files) ──
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+// views.jsx aliases
+const uS=useState, uE=useEffect, uR=useRef, uCB=useCallback, uM=useMemo;
+// app.jsx aliases
+const US=useState, UE=useEffect, UR=useRef, UCB=useCallback, UM=useMemo;
+
+// ════════════════ components.jsx ════════════════
+// ─────────── Reusable UI components ───────────
+
+// Setup screen
+function SetupScreen({onComplete}){
+  const [url,setUrl]=useState(""); const [pass,setPass]=useState("");
+  const [calId,setCalId]=useState(""); const [error,setError]=useState("");
+  const [testing,setTesting]=useState(false);
+  const handleSubmit=async()=>{
+    if(!url.trim()||!pass.trim()){setError("Script URL and password required.");return;}
+    setTesting(true);setError("");
+    try{
+      await api(url.trim(),pass.trim(),"getAll");
+      const cfg={scriptUrl:url.trim(),password:pass.trim(),calendarId:calId.trim()};
+      saveConfig(cfg); onComplete(cfg);
+    }catch(e){setError(e.message==="Invalid password"?"Wrong password.":"Couldn't connect. Check the URL.");}
+    finally{setTesting(false);}
+  };
+  const field={width:"100%",padding:"12px 14px",borderRadius:12,border:"1.5px solid var(--line2)",background:"var(--card)",fontSize:14,color:"var(--ink)",outline:"none",marginBottom:14};
+  const label={fontSize:11,fontWeight:700,color:"var(--accent)",letterSpacing:0.6,textTransform:"uppercase",display:"block",marginBottom:6};
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{width:"100%",maxWidth:440,background:"var(--card)",backdropFilter:"blur(14px)",borderRadius:24,padding:36,boxShadow:"0 12px 50px var(--glow)",border:"1px solid var(--line)"}}>
+        <p className="serif ital" style={{fontSize:14,color:"var(--accent)",marginBottom:6}}>welcome to your</p>
+        <h1 className="serif" style={{fontSize:38,fontWeight:500,color:"var(--ink)",marginBottom:8,lineHeight:1.05,letterSpacing:-0.5}}>Family.</h1>
+        <p style={{fontSize:14,color:"var(--ink2)",marginBottom:28,lineHeight:1.55}}>Paste your Apps Script URL and shared password. Calendar ID enables event creation.</p>
+        <label style={label}>Apps Script URL</label>
+        <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={field}/>
+        <label style={label}>Password</label>
+        <input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Shared password" style={{...field,marginBottom:error?8:14}} onKeyDown={e=>e.key==="Enter"&&handleSubmit()}/>
+        {error&&<p style={{fontSize:13,color:"#c05050",marginBottom:14}}>{error}</p>}
+        <label style={label}>Calendar ID <span style={{fontWeight:400,color:"var(--muted)",textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+        <input value={calId} onChange={e=>setCalId(e.target.value)} placeholder="yourname@gmail.com" style={field}/>
+        <button onClick={handleSubmit} disabled={testing} style={{width:"100%",padding:"14px",background:testing?"var(--muted)":"var(--accent)",color:"white",border:"none",borderRadius:14,fontSize:15,fontWeight:700,cursor:testing?"not-allowed":"pointer",marginTop:8,letterSpacing:0.2}}>
+          {testing?"Connecting…":"Connect →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// History modal
+function HistoryModal({history,onRemove,onClearAll,onClose}){
+  const [filter,setFilter]=useState(""); const ref=useRef(null);
+  useEffect(()=>{ref.current?.focus();},[]);
+  const visible=filter.trim()?history.filter(h=>h.toLowerCase().includes(filter.toLowerCase())):history;
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:5000,background:"rgba(20,30,15,0.5)",backdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:500,background:"var(--card)",backdropFilter:"blur(20px)",borderRadius:"24px 24px 0 0",border:"1px solid var(--line)",borderBottom:"none",maxHeight:"85vh",display:"flex",flexDirection:"column",animation:"slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)"}}>
+        <div style={{padding:"22px 22px 14px",borderBottom:"1px solid var(--line)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <p className="serif ital" style={{fontSize:13,color:"var(--accent)",marginBottom:1}}>manage</p>
+              <h2 className="serif" style={{fontSize:24,fontWeight:500,color:"var(--ink)",lineHeight:1}}>History</h2>
+            </div>
+            <button onClick={onClose} style={{width:34,height:34,borderRadius:"50%",border:"none",background:"var(--chip)",cursor:"pointer",fontSize:16,color:"var(--ink2)"}}>✕</button>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"var(--card)",borderRadius:12,padding:"9px 14px",border:"1px solid var(--line2)"}}>
+            <input ref={ref} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search history…" style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:14}}/>
+            {filter&&<button onClick={()=>setFilter("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"var(--muted)"}}>✕</button>}
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10}}>
+            <p className="mono" style={{fontSize:11,color:"var(--muted)"}}>{visible.length} / {history.length}</p>
+            {history.length>0&&<button onClick={()=>{if(confirm("Clear entire history?"))onClearAll();}} style={{background:"none",border:"1px solid rgba(200,100,100,0.4)",color:"#c08080",borderRadius:8,padding:"4px 12px",fontSize:11,cursor:"pointer",fontWeight:600}}>Clear all</button>}
+          </div>
+        </div>
+        <div style={{overflowY:"auto",flex:1,padding:"10px 22px 24px"}}>
+          {visible.length===0 ? (
+            <div style={{textAlign:"center",padding:"40px 20px",color:"var(--muted)"}}>
+              <p className="serif ital" style={{fontSize:17}}>{filter?"No matches":"History is empty"}</p>
+            </div>
+          ) : visible.map((entry,i)=>(
+            <div key={entry+i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:4,background:"var(--card)",border:"1px solid var(--line)"}}>
+              <span style={{fontSize:14,flexShrink:0,color:"var(--muted)",width:14,textAlign:"center"}}>{itemEmoji(entry)}</span>
+              <span style={{flex:1,fontSize:14.5,color:"var(--ink)"}}>{entry}</span>
+              <button onClick={()=>onRemove(entry)} style={{width:26,height:26,borderRadius:"50%",border:"none",background:"rgba(200,80,80,0.10)",color:"#c06060",cursor:"pointer",fontSize:13,fontWeight:700}}>✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────── Tweaks Panel ───────────
+function TweaksPanel({tweaks,setTweak,onClose}){
+  const Section = ({title,children})=>(
+    <div style={{marginBottom:18}}>
+      <p className="mono" style={{fontSize:10,fontWeight:600,color:"var(--muted)",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{title}</p>
+      {children}
+    </div>
+  );
+  const Row = ({children})=> <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{children}</div>;
+  const Chip = ({active,onClick,children,swatch})=>(
+    <button onClick={onClick} style={{
+      flex:"1 1 auto",padding:"8px 10px",borderRadius:10,
+      border:active?"1.5px solid var(--accent)":"1px solid var(--line2)",
+      background:active?"var(--chip)":"transparent",color:"var(--ink)",
+      fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6,justifyContent:"center"
+    }}>
+      {swatch && <span style={{width:10,height:10,borderRadius:"50%",background:swatch,display:"inline-block"}}/>}
+      {children}
+    </button>
+  );
+  return (
+    <div style={{position:"fixed",bottom:16,right:16,zIndex:6000,width:300,maxWidth:"calc(100vw - 32px)",background:"var(--card)",backdropFilter:"blur(20px)",border:"1px solid var(--line2)",borderRadius:16,padding:18,boxShadow:"0 20px 60px var(--glow)",animation:"fadeIn 0.2s ease"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+        <p className="serif" style={{fontSize:18,fontWeight:500,color:"var(--ink)"}}>Tweaks</p>
+        <button onClick={onClose} style={{width:26,height:26,borderRadius:"50%",border:"none",background:"var(--chip)",cursor:"pointer",fontSize:13,color:"var(--ink2)"}}>✕</button>
+      </div>
+      <Section title="Theme">
+        <Row>
+          {Object.keys(THEMES).map(k=>(
+            <Chip key={k} active={tweaks.theme===k} onClick={()=>setTweak("theme",k)} swatch={THEMES[k].accent}>{THEMES[k].name}</Chip>
+          ))}
+        </Row>
+      </Section>
+      <Section title="Mode">
+        <Row>
+          <Chip active={!tweaks.dark} onClick={()=>setTweak("dark",false)}>☀ Light</Chip>
+          <Chip active={tweaks.dark} onClick={()=>setTweak("dark",true)}>☾ Dark</Chip>
+        </Row>
+      </Section>
+      <Section title="Typography">
+        <Row>
+          {Object.keys(FONT_PAIRS).map(k=>(
+            <Chip key={k} active={tweaks.fontPair===k} onClick={()=>setTweak("fontPair",k)}>
+              <span style={{fontFamily:FONT_PAIRS[k].display}}>Aa</span>
+              <span style={{fontSize:11,color:"var(--ink2)"}}>{FONT_PAIRS[k].name}</span>
+            </Chip>
+          ))}
+        </Row>
+      </Section>
+      <Section title="Layout (desktop)">
+        <Row>
+          <Chip active={tweaks.layout==="auto"} onClick={()=>setTweak("layout","auto")}>Auto</Chip>
+          <Chip active={tweaks.layout==="sidebar"} onClick={()=>setTweak("layout","sidebar")}>Sidebar</Chip>
+          <Chip active={tweaks.layout==="tabs"} onClick={()=>setTweak("layout","tabs")}>Tabs</Chip>
+        </Row>
+      </Section>
+      <Section title="Activities view">
+        <Row>
+          <Chip active={tweaks.activitiesView==="cards"} onClick={()=>setTweak("activitiesView","cards")}>Cards</Chip>
+          <Chip active={tweaks.activitiesView==="timeline"} onClick={()=>setTweak("activitiesView","timeline")}>Timeline</Chip>
+          <Chip active={tweaks.activitiesView==="calendar"} onClick={()=>setTweak("activitiesView","calendar")}>Calendar</Chip>
+        </Row>
+      </Section>
+    </div>
+  );
+}
+
+
+
+
+
+// ════════════════ views.jsx ════════════════
+// ─────────── Views: Home / Shopping (Kanban) / Activities ───────────
+
+// ━━━━━━━━━━━━ Add Activity Modal ━━━━━━━━━━━━
+function AddActivityModal({onSave,onClose,initial}){
+  const [name,setName]=uS(initial?.name||"");
+  const [startDate,setStartDate]=uS(initial?.startDate||"");
+  const [endDate,setEndDate]=uS(initial?.endDate||"");
+  const [startTime,setStartTime]=uS(initial?.startTime||"");
+  const [endTime,setEndTime]=uS(initial?.endTime||"");
+  const [location,setLocation]=uS(initial?.location||"");
+  const [notes,setNotes]=uS(initial?.notes||"");
+  const [saving,setSaving]=uS(false);
+
+  const inputStyle={width:"100%",padding:"11px 14px",borderRadius:11,border:"1.5px solid var(--line2)",background:"var(--card)",fontSize:14,color:"var(--ink)",outline:"none"};
+  const labelStyle={fontSize:10,fontWeight:700,color:"var(--accent)",letterSpacing:0.6,textTransform:"uppercase",display:"block",marginBottom:5,marginTop:14};
+
+  const handleSave=()=>{
+    if(!name.trim()||!startDate){alert("Name and start date are required.");return;}
+    setSaving(true);
+    onSave({id:initial?.id||uid(),name:name.trim(),startDate,endDate:endDate||startDate,startTime,endTime,location:location.trim(),notes:notes.trim(),addedAt:initial?.addedAt||Date.now()});
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:5000,background:"rgba(20,30,15,0.5)",backdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:540,background:"var(--card)",backdropFilter:"blur(20px)",borderRadius:"24px 24px 0 0",border:"1px solid var(--line)",borderBottom:"none",maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)"}}>
+        <div style={{padding:"26px 26px 36px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+            <div>
+              <p className="serif ital" style={{fontSize:13,color:"var(--accent)",marginBottom:1}}>{initial?"edit":"new"}</p>
+              <h2 className="serif" style={{fontSize:26,fontWeight:500,color:"var(--ink)",lineHeight:1}}>Activity</h2>
+            </div>
+            <button onClick={onClose} style={{width:34,height:34,borderRadius:"50%",border:"none",background:"var(--chip)",cursor:"pointer",fontSize:16,color:"var(--ink2)"}}>✕</button>
+          </div>
+
+          <label style={labelStyle}>Name</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Summer camp, soccer practice…" style={inputStyle} autoFocus/>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={labelStyle}>Start date</label><input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} style={inputStyle}/></div>
+            <div><label style={labelStyle}>End date</label><input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} style={inputStyle}/></div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={labelStyle}>Start time</label><input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)} style={inputStyle}/></div>
+            <div><label style={labelStyle}>End time</label><input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} style={inputStyle}/></div>
+          </div>
+
+          <label style={labelStyle}>Location</label>
+          <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Address or venue" style={inputStyle}/>
+
+          <label style={labelStyle}>Notes</label>
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Any details…" rows={3} style={{...inputStyle,resize:"vertical",lineHeight:1.5}}/>
+
+          <p style={{fontSize:11,color:"var(--muted)",marginTop:14,marginBottom:18,lineHeight:1.5}}>
+            Reminders set automatically at 14d, 7d, and 1d before start.
+          </p>
+
+          <button onClick={handleSave} disabled={saving||!name.trim()||!startDate}
+            style={{width:"100%",padding:"14px",background:saving||!name.trim()||!startDate?"var(--muted)":"var(--accent)",color:"white",border:"none",borderRadius:13,fontSize:15,fontWeight:700,cursor:"pointer",letterSpacing:0.2}}>
+            {saving?"Saving…":"Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━ Paperwork ━━━━━━━━━━━━
+function PaperworkRow({item,onToggle,onDelete,compact}){
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:10,padding:compact?"7px 10px":"9px 12px",borderRadius:10,marginBottom:5,background:"var(--card)",border:"1px solid var(--line)"}}>
+      <button onClick={()=>onToggle(item.id,!item.completed)}
+        style={{width:20,height:20,borderRadius:6,border:`1.8px solid ${item.completed?"var(--accent)":"var(--line2)"}`,background:item.completed?"var(--accent)":"transparent",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+        {item.completed&&<span style={{color:"white",fontSize:11,fontWeight:700,lineHeight:1}}>✓</span>}
+      </button>
+      <span style={{flex:1,fontSize:13.5,color:item.completed?"var(--muted)":"var(--ink)",textDecoration:item.completed?"line-through":"none"}}>{item.label}</span>
+      {item.url&&(
+        <a href={item.url} target="_blank" rel="noopener noreferrer" style={{fontSize:14,textDecoration:"none",flexShrink:0,color:"var(--ink2)"}} title={item.type==="pdf"?"PDF":"Link"}>
+          {item.type==="pdf"?"📄":"↗"}
+        </a>
+      )}
+      {onDelete&&<button onClick={()=>onDelete(item.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"var(--muted)",flexShrink:0}}>✕</button>}
+    </div>
+  );
+}
+
+function AddPaperworkForm({activityId,onAdd,onUpload,uploading}){
+  const [label,setLabel]=uS(""); const [type,setType]=uS("link");
+  const [url,setUrl]=uS(""); const fileRef=uR(null);
+  const handleAdd=()=>{
+    if(!label.trim())return;
+    if(type!=="upload"&&!url.trim()){alert("URL needed.");return;}
+    onAdd({id:uid(),activityId,label:label.trim(),type,url:url.trim(),addedAt:Date.now()});
+    setLabel("");setUrl("");setType("link");
+  };
+  const handleFile=async(e)=>{
+    const file=e.target.files[0];
+    if(!file||!label.trim()){if(!label.trim())alert("Enter a label first.");return;}
+    const fileUrl=await onUpload(file,label.trim(),activityId);
+    if(fileUrl){onAdd({id:uid(),activityId,label:label.trim(),type:"pdf",url:fileUrl,addedAt:Date.now()});setLabel("");setType("link");}
+    e.target.value="";
+  };
+  const btn=(active)=>({padding:"5px 11px",borderRadius:18,border:"none",cursor:"pointer",fontSize:11.5,fontWeight:600,background:active?"var(--accent)":"var(--chip)",color:active?"white":"var(--ink2)"});
+  return (
+    <div style={{marginTop:10,padding:14,background:"var(--chip)",borderRadius:12,border:"1px solid var(--line)"}}>
+      <p className="mono" style={{fontSize:10,fontWeight:600,color:"var(--accent)",letterSpacing:0.6,marginBottom:8,textTransform:"uppercase"}}>Add paperwork</p>
+      <input value={label} onChange={e=>setLabel(e.target.value)} placeholder="Label (Health Form, Deposit…)"
+        onKeyDown={e=>e.key==="Enter"&&type!=="upload"&&handleAdd()}
+        style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid var(--line2)",background:"var(--card)",fontSize:13.5,outline:"none",marginBottom:8}}/>
+      <div style={{display:"flex",gap:6,marginBottom:8}}>
+        <button style={btn(type==="link")} onClick={()=>setType("link")}>Web link</button>
+        <button style={btn(type==="pdf")} onClick={()=>setType("pdf")}>PDF link</button>
+        <button style={btn(type==="upload")} onClick={()=>setType("upload")}>Upload PDF</button>
+      </div>
+      {type==="upload" ? (
+        <div style={{display:"flex",gap:8}}>
+          <input ref={fileRef} type="file" accept=".pdf,application/pdf" onChange={handleFile} style={{display:"none"}}/>
+          <button onClick={()=>fileRef.current?.click()} disabled={uploading||!label.trim()}
+            style={{flex:1,padding:"9px",background:uploading||!label.trim()?"var(--muted)":"var(--accent)",color:"white",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            {uploading?"Uploading…":"Choose PDF"}
+          </button>
+        </div>
+      ) : (
+        <div style={{display:"flex",gap:8}}>
+          <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://…"
+            onKeyDown={e=>e.key==="Enter"&&handleAdd()}
+            style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1px solid var(--line2)",background:"var(--card)",fontSize:13,outline:"none"}}/>
+          <button onClick={handleAdd} disabled={!label.trim()||!url.trim()}
+            style={{padding:"9px 14px",background:!label.trim()||!url.trim()?"var(--muted)":"var(--accent)",color:"white",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>Add</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━ Activity Card ━━━━━━━━━━━━
+function ActivityCard({activity,paperwork,onDelete,onTogglePaperwork,onDeletePaperwork,onAddPaperwork,onUpload,uploading,defaultExpanded}){
+  const [expanded,setExpanded]=uS(!!defaultExpanded);
+  const [showAddPW,setShowAddPW]=uS(false);
+  const pw=paperwork.filter(p=>String(p.activityId)===String(activity.id));
+  const completed=pw.filter(p=>p.completed===true||p.completed==="TRUE"||p.completed==="true").length;
+  const upcoming=isUpcoming(activity.endDate||activity.startDate);
+  const days=daysUntil(activity.startDate);
+  const pct = pw.length>0 ? completed/pw.length : null;
+
+  const dateStr=()=>{
+    const s=fmt(activity.startDate);
+    const e=activity.endDate&&activity.endDate!==activity.startDate?fmt(activity.endDate):"";
+    const t=activity.startTime?` · ${activity.startTime}`:"";
+    return e?`${s} – ${e}${t}`:`${s}${t}`;
+  };
+
+  return (
+    <div style={{background:"var(--card)",backdropFilter:"blur(8px)",borderRadius:16,marginBottom:12,border:"1px solid var(--line)",opacity:upcoming?1:0.62,overflow:"hidden"}}>
+      <div style={{padding:"16px 18px",cursor:"pointer",display:"flex",gap:12,alignItems:"flex-start"}} onClick={()=>setExpanded(p=>!p)}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap",marginBottom:4}}>
+            <span className="serif" style={{fontSize:18,fontWeight:500,color:"var(--ink)",letterSpacing:-0.2}}>{activity.name}</span>
+            {upcoming && days!==null && days>=0 && days<14 && (
+              <span className="mono" style={{fontSize:10,color:"var(--accent)",fontWeight:600,letterSpacing:0.4,textTransform:"uppercase"}}>{relDay(days)}</span>
+            )}
+            {!upcoming && <span className="mono" style={{fontSize:9,background:"var(--chip)",color:"var(--muted)",borderRadius:8,padding:"2px 7px",fontWeight:600,letterSpacing:0.5}}>PAST</span>}
+          </div>
+          {activity.startDate && <p style={{fontSize:13,color:"var(--ink2)",marginBottom:2}}>{dateStr()}</p>}
+          {activity.location && <p style={{fontSize:12.5,color:"var(--muted)"}}>· {activity.location}</p>}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
+          {pw.length>0 && (
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:36,height:4,background:"var(--line)",borderRadius:2,overflow:"hidden"}}>
+                <div style={{width:`${pct*100}%`,height:"100%",background:pct===1?"var(--accent)":"var(--accent2)"}}/>
+              </div>
+              <span className="mono" style={{fontSize:11,fontWeight:600,color:pct===1?"var(--accent)":"var(--ink2)",whiteSpace:"nowrap"}}>{completed}/{pw.length}</span>
+            </div>
+          )}
+          <span style={{fontSize:10,color:"var(--muted)"}}>{expanded?"▲":"▼"}</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{padding:"0 18px 18px",borderTop:"1px solid var(--line)"}}>
+          {activity.notes && <p style={{fontSize:13.5,color:"var(--ink2)",padding:"12px 0",lineHeight:1.55,fontStyle:"italic",fontFamily:"var(--font-display)"}}>"{activity.notes}"</p>}
+
+          {pw.length>0 && (
+            <div style={{marginTop:12}}>
+              <p className="mono" style={{fontSize:10,fontWeight:600,color:"var(--accent)",letterSpacing:0.6,marginBottom:8,textTransform:"uppercase"}}>Paperwork</p>
+              {pw.map(p=><PaperworkRow key={p.id} item={{...p,completed:p.completed===true||p.completed==="TRUE"||p.completed==="true"}} onToggle={onTogglePaperwork} onDelete={onDeletePaperwork}/>)}
+            </div>
+          )}
+
+          {showAddPW ? (
+            <AddPaperworkForm activityId={activity.id} uploading={uploading} onUpload={onUpload}
+              onAdd={(pwItem)=>{onAddPaperwork(pwItem);setShowAddPW(false);}}/>
+          ) : (
+            <button onClick={()=>setShowAddPW(true)}
+              style={{marginTop:12,width:"100%",padding:"9px",borderRadius:11,border:"1.5px dashed var(--line2)",background:"transparent",cursor:"pointer",fontSize:13,color:"var(--ink2)",fontWeight:600}}>
+              + Add paperwork
+            </button>
+          )}
+
+          <button onClick={()=>{if(confirm("Delete this activity and all its paperwork?"))onDelete(activity.id);}}
+            style={{marginTop:10,background:"none",border:"none",cursor:"pointer",fontSize:11.5,color:"#c08080",display:"block",marginLeft:"auto"}}>
+            Delete activity
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ━━━━━━━━━━━━ Activities Tab ━━━━━━━━━━━━
+function ActivitiesTab({activities,paperwork,view,onAdd,onDelete,onTogglePaperwork,onDeletePaperwork,onAddPaperwork,onUpload,uploading}){
+  const [showAdd,setShowAdd]=uS(false);
+  const [showPast,setShowPast]=uS(false);
+  const sorted=[...activities].sort((a,b)=>new Date(a.startDate)-new Date(b.startDate));
+  const upcoming=sorted.filter(a=>isUpcoming(a.endDate||a.startDate));
+  const past=sorted.filter(a=>!isUpcoming(a.endDate||a.startDate)).reverse();
+
+  // Group upcoming by month for timeline
+  const byMonth = uM(()=>{
+    const m={};
+    upcoming.forEach(a=>{
+      if(!a.startDate)return;
+      const d=new Date(a.startDate+"T12:00:00");
+      const k=d.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+      (m[k]=m[k]||[]).push(a);
+    });
+    return m;
+  },[upcoming]);
+
+  // Calendar grid for current month
+  const cal = uM(()=>{
+    const today=new Date(); today.setHours(0,0,0,0);
+    const first=new Date(today.getFullYear(),today.getMonth(),1);
+    const startDay=first.getDay();
+    const daysInMonth=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
+    const cells=[];
+    for(let i=0;i<startDay;i++)cells.push(null);
+    for(let d=1;d<=daysInMonth;d++){
+      const date=new Date(today.getFullYear(),today.getMonth(),d);
+      const iso=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const acts=upcoming.filter(a=>{
+        if(!a.startDate)return false;
+        return iso>=a.startDate && iso<=(a.endDate||a.startDate);
+      });
+      cells.push({date,iso,acts,isToday:date.getTime()===today.getTime()});
+    }
+    return {cells, monthLabel:today.toLocaleDateString("en-US",{month:"long",year:"numeric"})};
+  },[upcoming]);
+
+  const AddBtn = (
+    <button onClick={()=>setShowAdd(true)}
+      style={{width:"100%",padding:"14px",borderRadius:14,border:"1.5px dashed var(--line2)",background:"transparent",cursor:"pointer",fontSize:14,color:"var(--ink2)",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:18}}>
+      <span style={{fontSize:18}}>+</span> Add activity
+    </button>
+  );
+
+  return (
+    <div style={{padding:"0 0 60px"}}>
+      {AddBtn}
+
+      {upcoming.length===0 && past.length===0 && (
+        <div style={{textAlign:"center",padding:"60px 20px",color:"var(--muted)"}}>
+          <p className="serif ital" style={{fontSize:20,color:"var(--ink2)",marginBottom:6}}>No activities yet</p>
+          <p style={{fontSize:13}}>Add a camp, practice, or event above</p>
+        </div>
+      )}
+
+      {/* Cards view */}
+      {view==="cards" && upcoming.map(a=>(
+        <ActivityCard key={a.id} activity={a} paperwork={paperwork} onDelete={onDelete} onTogglePaperwork={onTogglePaperwork} onDeletePaperwork={onDeletePaperwork} onAddPaperwork={onAddPaperwork} onUpload={onUpload} uploading={uploading}/>
+      ))}
+
+      {/* Timeline view */}
+      {view==="timeline" && Object.entries(byMonth).map(([month,acts])=>(
+        <div key={month} style={{marginBottom:24}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+            <h3 className="serif" style={{fontSize:22,fontWeight:500,color:"var(--ink)"}}>{month}</h3>
+            <div style={{flex:1,height:1,background:"var(--line)"}}/>
+            <span className="mono" style={{fontSize:11,color:"var(--muted)"}}>{acts.length}</span>
+          </div>
+          <div style={{position:"relative",paddingLeft:28}}>
+            <div style={{position:"absolute",left:9,top:6,bottom:6,width:1.5,background:"var(--line2)"}}/>
+            {acts.map(a=>{
+              const d=new Date(a.startDate+"T12:00:00");
+              return (
+                <div key={a.id} style={{position:"relative",marginBottom:10}}>
+                  <div style={{position:"absolute",left:-23,top:18,width:11,height:11,borderRadius:"50%",background:"var(--bg)",border:"2.5px solid var(--accent)"}}/>
+                  <div style={{position:"absolute",left:-60,top:14,fontSize:11,color:"var(--muted)",textAlign:"right",width:32}}>
+                    <div className="mono" style={{fontWeight:700,color:"var(--ink2)",fontSize:13}}>{d.getDate()}</div>
+                    <div className="mono" style={{fontSize:9,textTransform:"uppercase",letterSpacing:0.5}}>{d.toLocaleDateString("en-US",{weekday:"short"})}</div>
+                  </div>
+                  <ActivityCard activity={a} paperwork={paperwork} onDelete={onDelete} onTogglePaperwork={onTogglePaperwork} onDeletePaperwork={onDeletePaperwork} onAddPaperwork={onAddPaperwork} onUpload={onUpload} uploading={uploading}/>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Calendar view */}
+      {view==="calendar" && (
+        <div style={{marginBottom:24}}>
+          <h3 className="serif" style={{fontSize:22,fontWeight:500,color:"var(--ink)",marginBottom:14}}>{cal.monthLabel}</h3>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6,marginBottom:8}}>
+            {["S","M","T","W","T","F","S"].map((d,i)=>(
+              <div key={i} className="mono" style={{fontSize:10,fontWeight:700,color:"var(--muted)",textAlign:"center",padding:"4px 0",letterSpacing:0.5}}>{d}</div>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6,marginBottom:24}}>
+            {cal.cells.map((c,i)=>(
+              <div key={i} style={{aspectRatio:"1/1.1",background:c?"var(--card)":"transparent",border:"1px solid var(--line)",borderRadius:8,padding:"4px 6px",display:"flex",flexDirection:"column",position:"relative",opacity:c?1:0}}>
+                {c && (
+                  <>
+                    <span className="mono" style={{fontSize:11,fontWeight:c.isToday?700:500,color:c.isToday?"var(--accent)":"var(--ink2)"}}>{c.date.getDate()}</span>
+                    <div style={{flex:1,display:"flex",flexDirection:"column",gap:2,marginTop:2,overflow:"hidden"}}>
+                      {c.acts.slice(0,2).map(a=>(
+                        <div key={a.id} title={a.name} style={{fontSize:9,padding:"1px 4px",background:"var(--accent)",color:"white",borderRadius:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
+                      ))}
+                      {c.acts.length>2 && <div style={{fontSize:9,color:"var(--muted)",fontWeight:600}}>+{c.acts.length-2}</div>}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="mono" style={{fontSize:11,color:"var(--muted)",marginBottom:10,letterSpacing:0.5,textTransform:"uppercase"}}>Upcoming details</p>
+          {upcoming.map(a=><ActivityCard key={a.id} activity={a} paperwork={paperwork} onDelete={onDelete} onTogglePaperwork={onTogglePaperwork} onDeletePaperwork={onDeletePaperwork} onAddPaperwork={onAddPaperwork} onUpload={onUpload} uploading={uploading}/>)}
+        </div>
+      )}
+
+      {past.length>0 && (
+        <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid var(--line)"}}>
+          <button onClick={()=>setShowPast(p=>!p)}
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"var(--muted)",fontWeight:600,display:"flex",alignItems:"center",gap:6,marginBottom:12}}>
+            {showPast?"▲":"▼"} {past.length} past activit{past.length!==1?"ies":"y"}
+          </button>
+          {showPast && past.map(a=><ActivityCard key={a.id} activity={a} paperwork={paperwork} onDelete={onDelete} onTogglePaperwork={onTogglePaperwork} onDeletePaperwork={onDeletePaperwork} onAddPaperwork={onAddPaperwork} onUpload={onUpload} uploading={uploading}/>)}
+        </div>
+      )}
+
+      {showAdd && <AddActivityModal onClose={()=>setShowAdd(false)} onSave={data=>{onAdd(data);setShowAdd(false);}}/>}
+    </div>
+  );
+}
+
+
+
+// ════════════════ app.jsx ════════════════
+// ─────────── Main App: Home + Shopping Kanban + Activities ───────────
+
+// ━━━━━━━━━━━━ Tweaks hook ━━━━━━━━━━━━
+function useTweaks(){
+  const [t,setT]=US(()=>{
+    try{
+      const stored=JSON.parse(localStorage.getItem(TWK_KEY)||"null");
+      return {...window.TWEAK_DEFAULTS, ...(stored||{})};
+    }catch{return window.TWEAK_DEFAULTS;}
+  });
+  UE(()=>{
+    applyTheme(t.theme,t.fontPair,t.dark);
+    localStorage.setItem(TWK_KEY,JSON.stringify(t));
+    try{window.parent.postMessage({type:"__edit_mode_set_keys",edits:t},"*");}catch{}
+  },[t]);
+  const setTweak=(k,v)=>setT(p=>({...p,[k]:v}));
+  return [t,setTweak];
+}
+
+// ━━━━━━━━━━━━ Hook: viewport size ━━━━━━━━━━━━
+function useViewport(){
+  const [w,setW]=US(typeof window!=="undefined"?window.innerWidth:1024);
+  UE(()=>{
+    const onR=()=>setW(window.innerWidth);
+    window.addEventListener("resize",onR);
+    return ()=>window.removeEventListener("resize",onR);
+  },[]);
+  return {w, isMobile:w<800, isWide:w>=1200};
+}
+
+// ━━━━━━━━━━━━ SwipeRow (shopping item) ━━━━━━━━━━━━
+function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove,draggingId,onDragStart,onDragEnd,isNew,onTouchMove}){
+  const [swipeX,setSwipeX]=US(0);
+  const [swiping,setSwiping]=US(false);
+  const [removing,setRemoving]=US(false);
+  const [showMove,setShowMove]=US(false);
+  const sX=UR(0); const dx=UR(0); const startTime=UR(0);
+  const longPress=UR(null);
+  const moved=UR(false);
+  const rowRef=UR(null);
+
+  // Touch: long-press to start drag, otherwise swipe
+  const onTS=e=>{
+    sX.current=e.touches[0].clientX;
+    dx.current=0;
+    moved.current=false;
+    startTime.current=Date.now();
+    longPress.current=setTimeout(()=>{
+      if(!moved.current){
+        // start drag
+        if("vibrate" in navigator) navigator.vibrate(20);
+        onDragStart(item.id);
+      }
+    },380);
+  };
+  const onTM=e=>{
+    const t=e.touches[0];
+    const dxNow=t.clientX-sX.current;
+    if(Math.abs(dxNow)>4) moved.current=true;
+    if(draggingId===item.id){
+      e.preventDefault();
+      onTouchMove&&onTouchMove(t.clientX,t.clientY);
+      return;
+    }
+    if(Math.abs(dxNow)>6 && !swiping) setSwiping(true);
+    dx.current=dxNow;
+    if(dxNow<0) setSwipeX(Math.max(dxNow,-120));
+  };
+  const onTE=e=>{
+    clearTimeout(longPress.current);
+    if(draggingId===item.id){
+      onDragEnd(e?.changedTouches?.[0]?.clientX, e?.changedTouches?.[0]?.clientY);
+      setSwipeX(0);setSwiping(false);
+      return;
+    }
+    setSwiping(false);
+    if(dx.current<-80){setRemoving(true);setTimeout(()=>onRemove(item.id),250);}
+    else setSwipeX(0);
+  };
+
+  const isDragging = draggingId===item.id;
+
+  return (
+    <div ref={rowRef} style={{position:"relative",overflow:"visible",marginBottom:6,opacity:removing?0:1,maxHeight:removing?0:80,transition:removing?"all 0.25s ease":"none",animation:isNew?"popIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards":"none"}} data-item-id={item.id}>
+      <div style={{position:"absolute",right:0,top:0,bottom:0,width:110,background:"linear-gradient(135deg,#e55,#c33)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:4,zIndex:0}}>
+        <span style={{color:"white",fontSize:11,fontWeight:700,letterSpacing:0.5}}>REMOVE</span>
+      </div>
+      <div draggable onDragStart={e=>{e.dataTransfer.effectAllowed="move";onDragStart(item.id);}} onDragEnd={()=>onDragEnd()}
+        onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
+        style={{position:"relative",zIndex:isDragging?100:1,transform:`translateX(${swipeX}px) ${isDragging?"scale(1.02)":""}`,transition:swiping||isDragging?"none":"transform 0.3s cubic-bezier(0.34,1.56,0.64,1)",opacity:isDragging?0.85:1,boxShadow:isDragging?"0 12px 30px rgba(0,0,0,0.2)":"none",background:"var(--card)",backdropFilter:"blur(8px)",borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:8,border:`1px solid ${isDragging?color:"var(--line)"}`,cursor:"grab",userSelect:"none",touchAction:"pan-y"}}>
+        <span style={{fontSize:12,color:"var(--muted)",flexShrink:0,fontWeight:700,letterSpacing:-1}}>⠿</span>
+        <span style={{fontSize:14,flexShrink:0,color:"var(--ink2)",width:16,textAlign:"center"}}>{item.emoji||itemEmoji(item.name)}</span>
+        <span className="serif" style={{flex:1,fontSize:15,color:"var(--ink)",fontWeight:500,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</span>
+        {item._pending && <span style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0,animation:"pulse 1s infinite"}}/>}
+        <div style={{position:"relative",flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();setShowMove(p=>!p);}} style={{background:"transparent",border:`1px solid ${color}`,borderRadius:7,padding:"3px 7px",cursor:"pointer",fontSize:10,color:color,fontWeight:700,letterSpacing:0.3}}>MOVE</button>
+          {showMove && (
+            <div style={{position:"absolute",right:0,top:"calc(100% + 4px)",background:"var(--card)",backdropFilter:"blur(14px)",borderRadius:10,boxShadow:"0 12px 30px rgba(0,0,0,0.18)",border:"1px solid var(--line2)",zIndex:9999,minWidth:160,overflow:"hidden"}}>
+              {stores.filter(s=>s.id!==item.storeId).map(s=>(
+                <div key={s.id} onClick={e=>{e.stopPropagation();onMove(item.id,s.id);setShowMove(false);}} style={{padding:"9px 13px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--ink)",borderBottom:"1px solid var(--line)"}}>
+                  <span style={{width:18,height:18,borderRadius:5,background:s.color,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{storeIcon(s.name)}</span>
+                  <span>{s.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:3,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();onDecrement(item.id);}} style={{width:24,height:24,borderRadius:"50%",border:"none",background:"var(--chip)",color:"var(--ink)",fontSize:14,fontWeight:700,cursor:"pointer"}}>−</button>
+          <span className="mono" style={{fontWeight:700,fontSize:13,color:"var(--ink)",minWidth:18,textAlign:"center"}}>{item.count}</span>
+          <button onClick={e=>{e.stopPropagation();onIncrement(item.id);}} style={{width:24,height:24,borderRadius:"50%",border:"none",background:color,color:"white",fontSize:14,fontWeight:700,cursor:"pointer"}}>+</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━ Kanban Column ━━━━━━━━━━━━
+function StoreColumn({store,items,stores,color,selected,onSelect,onRemoveItem,onIncrement,onDecrement,onMoveItem,onDeleteStore,draggingId,onDragStart,onDragEnd,onDrop,newItemIds,onTouchMove,activeDropZone}){
+  const [dragOver,setDragOver]=US(false);
+  const total=items.reduce((a,b)=>a+Number(b.count),0);
+  const isDropTarget = activeDropZone===store.id;
+
+  return (
+    <div
+      onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+      onDragLeave={()=>setDragOver(false)}
+      onDrop={e=>{e.preventDefault();setDragOver(false);onDrop(store.id);}}
+      data-store-id={store.id}
+      style={{
+        flex:"0 0 300px",
+        scrollSnapAlign:"start",
+        background:dragOver||isDropTarget?`color-mix(in oklch, ${color} 8%, var(--card))`:"var(--card)",
+        backdropFilter:"blur(10px)",
+        borderRadius:18,
+        border:dragOver||isDropTarget?`2px dashed ${color}`:"1px solid var(--line)",
+        padding:14,
+        display:"flex",flexDirection:"column",
+        maxHeight:"calc(100vh - 280px)",
+        minHeight:200,
+        transition:"border 0.15s,background 0.15s",
+        cursor:onSelect?"pointer":"default",
+      }}
+      onClick={()=>onSelect&&onSelect(store.id)}
+    >
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,paddingBottom:12,borderBottom:`2px solid ${selected?color:"transparent"}`}}>
+        <div style={{width:34,height:34,borderRadius:10,background:color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white",fontWeight:700,flexShrink:0}}>{storeIcon(store.name)}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <p className="serif" style={{fontSize:16,fontWeight:600,color:"var(--ink)",letterSpacing:-0.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{store.name}</p>
+          <p className="mono" style={{fontSize:10,color:"var(--muted)",letterSpacing:0.5,marginTop:1}}>
+            {items.length===0?"empty":`${items.length} item${items.length!==1?"s":""} · ${total} qty`}
+          </p>
+        </div>
+        <button onClick={e=>{e.stopPropagation();onDeleteStore(store.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"var(--muted)",padding:"4px 6px",flexShrink:0,opacity:0.6}}>✕</button>
+      </div>
+      <div style={{flex:1,overflowY:"auto",overflowX:"visible",minHeight:60,paddingRight:2}}>
+        {items.length===0 ? (
+          <div style={{padding:"22px 14px",borderRadius:12,border:`1.5px dashed ${color}55`,textAlign:"center",color:"var(--muted)",fontSize:12,fontStyle:"italic",fontFamily:"var(--font-display)"}}>
+            Drop items here, or add above
+          </div>
+        ) : items.map(item=>(
+          <ShoppingItem key={item.id} item={item} color={color} stores={stores}
+            onRemove={onRemoveItem} onIncrement={onIncrement} onDecrement={onDecrement} onMove={onMoveItem}
+            draggingId={draggingId} onDragStart={onDragStart} onDragEnd={onDragEnd}
+            isNew={newItemIds.has(item.id)} onTouchMove={onTouchMove}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━ Home Dashboard ━━━━━━━━━━━━
+function HomeView({stores,items,activities,paperwork,onIncrement,onDecrement,onRemoveItem,onTogglePaperwork,onAddPaperwork,onUpload,uploading,onGoTo}){
+  const totalItems=items.length;
+  const totalQty=items.reduce((a,b)=>a+Number(b.count),0);
+  const sorted=[...activities].sort((a,b)=>new Date(a.startDate)-new Date(b.startDate));
+  const upcoming=sorted.filter(a=>isUpcoming(a.endDate||a.startDate)).slice(0,3);
+
+  // Pending paperwork across activities
+  const pendingPW = UM(()=>{
+    const acts = sorted.filter(a=>isUpcoming(a.endDate||a.startDate));
+    const out=[];
+    acts.forEach(a=>{
+      const pw=paperwork.filter(p=>String(p.activityId)===String(a.id) && !(p.completed===true||p.completed==="TRUE"||p.completed==="true"));
+      pw.forEach(p=>out.push({...p, _activity:a, _days:daysUntil(a.startDate)}));
+    });
+    return out.sort((a,b)=>(a._days??99)-(b._days??99)).slice(0,8);
+  },[paperwork,activities]);
+
+  // Group items by store, sorted by store with most
+  const itemsByStore = UM(()=>{
+    return stores.map(s=>({store:s,items:items.filter(i=>i.storeId===s.id)})).filter(g=>g.items.length>0);
+  },[stores,items]);
+
+  const greeting = (()=>{
+    const h=new Date().getHours();
+    if(h<5) return "Late night";
+    if(h<12) return "Good morning";
+    if(h<17) return "Good afternoon";
+    if(h<21) return "Good evening";
+    return "Good night";
+  })();
+
+  const today = new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+
+  return (
+    <div style={{padding:"0 0 60px"}}>
+      {/* Hero greeting */}
+      <div style={{marginBottom:32,paddingBottom:24,borderBottom:"1px solid var(--line)"}}>
+        <p className="mono" style={{fontSize:11,color:"var(--muted)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>{today}</p>
+        <h1 className="serif" style={{fontSize:"clamp(34px, 5vw, 52px)",fontWeight:500,color:"var(--ink)",lineHeight:1.05,letterSpacing:-1}}>
+          {greeting}.
+        </h1>
+        <p className="serif ital" style={{fontSize:"clamp(16px, 2vw, 19px)",color:"var(--ink2)",marginTop:8,lineHeight:1.5}}>
+          {totalItems===0 && upcoming.length===0 ? "All quiet on the home front." :
+           totalItems>0 && pendingPW.length>0 ? `${totalQty} things to grab, ${pendingPW.length} forms still pending.` :
+           totalItems>0 ? `${totalQty} ${totalQty===1?"thing":"things"} to grab across ${itemsByStore.length} ${itemsByStore.length===1?"store":"stores"}.` :
+           pendingPW.length>0 ? `${pendingPW.length} ${pendingPW.length===1?"form":"forms"} still need attention.` :
+           upcoming.length>0 ? `${upcoming.length} upcoming activit${upcoming.length===1?"y":"ies"}.` : ""}
+        </p>
+      </div>
+
+      {/* Three-column on wide screens */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(300px, 1fr))",gap:20,marginBottom:24}}>
+
+        {/* Shopping summary */}
+        <section style={{background:"var(--card)",backdropFilter:"blur(10px)",border:"1px solid var(--line)",borderRadius:18,padding:20,minHeight:240}}>
+          <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <p className="mono" style={{fontSize:10,color:"var(--accent)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:2}}>Shopping</p>
+              <h3 className="serif" style={{fontSize:22,fontWeight:500,color:"var(--ink)"}}>To grab</h3>
+            </div>
+            <button onClick={()=>onGoTo("shopping")} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"var(--ink2)",fontWeight:600}}>Open →</button>
+          </div>
+          {itemsByStore.length===0 ? (
+            <p className="serif ital" style={{color:"var(--muted)",fontSize:15,padding:"20px 0",textAlign:"center"}}>Nothing on the list.</p>
+          ) : (
+            <div>
+              {itemsByStore.slice(0,3).map(g=>(
+                <div key={g.store.id} style={{marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <span style={{width:18,height:18,borderRadius:5,background:g.store.color,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{storeIcon(g.store.name)}</span>
+                    <p style={{fontSize:12,fontWeight:600,color:"var(--ink2)"}}>{g.store.name}</p>
+                    <span className="mono" style={{fontSize:10,color:"var(--muted)",marginLeft:"auto"}}>{g.items.length}</span>
+                  </div>
+                  {g.items.slice(0,4).map(it=>(
+                    <div key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",fontSize:13.5,color:"var(--ink)"}}>
+                      <span style={{color:"var(--muted)",width:12,textAlign:"center",fontSize:11}}>{itemEmoji(it.name)}</span>
+                      <span className="serif" style={{flex:1,fontWeight:500}}>{it.name}</span>
+                      <span className="mono" style={{fontSize:11,color:"var(--muted)"}}>×{it.count}</span>
+                    </div>
+                  ))}
+                  {g.items.length>4 && <p style={{fontSize:11,color:"var(--muted)",paddingLeft:20,marginTop:2}}>+{g.items.length-4} more</p>}
+                </div>
+              ))}
+              {itemsByStore.length>3 && (
+                <button onClick={()=>onGoTo("shopping")} style={{marginTop:6,background:"none",border:"none",cursor:"pointer",fontSize:12,color:"var(--accent)",fontWeight:600}}>+ {itemsByStore.length-3} more stores →</button>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Upcoming activities */}
+        <section style={{background:"var(--card)",backdropFilter:"blur(10px)",border:"1px solid var(--line)",borderRadius:18,padding:20,minHeight:240}}>
+          <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <p className="mono" style={{fontSize:10,color:"var(--accent)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:2}}>Coming up</p>
+              <h3 className="serif" style={{fontSize:22,fontWeight:500,color:"var(--ink)"}}>Activities</h3>
+            </div>
+            <button onClick={()=>onGoTo("activities")} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"var(--ink2)",fontWeight:600}}>Open →</button>
+          </div>
+          {upcoming.length===0 ? (
+            <p className="serif ital" style={{color:"var(--muted)",fontSize:15,padding:"20px 0",textAlign:"center"}}>Nothing scheduled.</p>
+          ) : (
+            upcoming.map(a=>{
+              const days=daysUntil(a.startDate);
+              return (
+                <div key={a.id} style={{padding:"10px 0",borderBottom:"1px solid var(--line)"}} >
+                  <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+                    <span className="serif" style={{flex:1,fontSize:16,fontWeight:500,color:"var(--ink)",letterSpacing:-0.2,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</span>
+                    <span className="mono" style={{fontSize:10,color:days!==null&&days<=7?"var(--accent)":"var(--muted)",fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",whiteSpace:"nowrap"}}>{relDay(days)}</span>
+                  </div>
+                  <p style={{fontSize:12,color:"var(--ink2)",marginTop:2}}>
+                    {fmtShort(a.startDate)}{a.startTime?` · ${a.startTime}`:""}{a.location?` · ${a.location}`:""}
+                  </p>
+                </div>
+              );
+            })
+          )}
+        </section>
+
+        {/* Pending paperwork */}
+        <section style={{background:"var(--card)",backdropFilter:"blur(10px)",border:`1px solid ${pendingPW.length>0?"var(--line2)":"var(--line)"}`,borderRadius:18,padding:20,minHeight:240,gridColumn:"auto"}}>
+          <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <p className="mono" style={{fontSize:10,color:"var(--accent)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:2}}>To do</p>
+              <h3 className="serif" style={{fontSize:22,fontWeight:500,color:"var(--ink)"}}>Pending forms</h3>
+            </div>
+            {pendingPW.length>0 && <span className="mono" style={{fontSize:14,fontWeight:700,color:"var(--accent)"}}>{pendingPW.length}</span>}
+          </div>
+          {pendingPW.length===0 ? (
+            <p className="serif ital" style={{color:"var(--muted)",fontSize:15,padding:"20px 0",textAlign:"center"}}>All forms complete.</p>
+          ) : (
+            pendingPW.map(p=>(
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"1px solid var(--line)"}}>
+                <button onClick={()=>onTogglePaperwork(p.id,true)} style={{width:18,height:18,borderRadius:5,border:"1.8px solid var(--line2)",background:"transparent",cursor:"pointer",flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontSize:13.5,color:"var(--ink)",fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.label}</p>
+                  <p style={{fontSize:11,color:"var(--muted)",marginTop:1}}>{p._activity.name} · <span className="mono">{relDay(p._days)}</span></p>
+                </div>
+                {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" style={{fontSize:14,color:"var(--ink2)",textDecoration:"none"}}>{p.type==="pdf"?"📄":"↗"}</a>}
+              </div>
+            ))
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━ Shopping (Kanban) ━━━━━━━━━━━━
+function ShoppingTab({stores,items,history,selectedStoreId,setSelectedStoreId,onAddItem,onRemoveItem,onIncrement,onDecrement,onMoveItem,onAddStore,onDeleteStore,draggingId,onDragStart,onDragEnd,onDrop,newItemIds,isMobile}){
+  const [itemInput,setItemInput]=US("");
+  const [storeInput,setStoreInput]=US("");
+  const [showAddStore,setShowAddStore]=US(false);
+  const [showItemSugs,setShowItemSugs]=US(false);
+  const [storeSugs,setStoreSugs]=US([]);
+  const [activeDropZone,setActiveDropZone]=US(null);
+  const storeInputRef=UR(null);
+  const kanbanRef=UR(null);
+
+  const itemSugs = UM(()=>{
+    if(!itemInput.trim())return [];
+    const q=itemInput.toLowerCase();
+    return history.filter(h=>h.toLowerCase().startsWith(q)&&h.toLowerCase()!==q).slice(0,5);
+  },[itemInput,history]);
+
+  UE(()=>{
+    if(!storeInput.trim()){setStoreSugs([]);return;}
+    const q=storeInput.toLowerCase();
+    setStoreSugs(COMMON_STORES.filter(s=>s.toLowerCase().includes(q)&&!stores.find(st=>st.name.toLowerCase()===s.toLowerCase())).slice(0,6));
+  },[storeInput,stores]);
+
+  // Touch drag: track finger and detect drop zone
+  const onTouchMove=(x,y)=>{
+    const el=document.elementFromPoint(x,y);
+    if(!el){setActiveDropZone(null);return;}
+    const col=el.closest("[data-store-id]");
+    if(col) setActiveDropZone(col.getAttribute("data-store-id"));
+    else setActiveDropZone(null);
+  };
+
+  const onDragEndWrapper=(x,y)=>{
+    if(x!==undefined && y!==undefined){
+      const el=document.elementFromPoint(x,y);
+      const col=el?.closest("[data-store-id]");
+      if(col && draggingId){
+        const targetId=col.getAttribute("data-store-id");
+        onDrop(targetId);
+      }
+    }
+    setActiveDropZone(null);
+    onDragEnd();
+  };
+
+  const handleAdd = ()=>{
+    if(!itemInput.trim()||!selectedStoreId)return;
+    onAddItem(itemInput);
+    setItemInput("");setShowItemSugs(false);
+  };
+
+  const handleAddSuggestion = (name)=>{
+    onAddItem(name);
+    setItemInput("");setShowItemSugs(false);
+  };
+
+  const handleAddStore = (name)=>{
+    if(!name.trim())return;
+    onAddStore(name);
+    setStoreInput("");setStoreSugs([]);setShowAddStore(false);
+  };
+
+  const selectedStore = stores.find(s=>s.id===selectedStoreId);
+
+  return (
+    <div style={{padding:"0 0 60px"}}>
+      {/* Add bar */}
+      {stores.length>0 && (
+        <div style={{position:"relative",marginBottom:18,zIndex:50}}>
+          <div style={{background:"var(--card)",backdropFilter:"blur(12px)",borderRadius:16,padding:"12px 14px",border:"1.5px solid var(--line2)",boxShadow:"0 4px 20px var(--glow)"}}>
+            {/* Store pills */}
+            <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+              <p className="mono" style={{fontSize:10,color:"var(--muted)",letterSpacing:0.8,textTransform:"uppercase",fontWeight:600,marginRight:4}}>Add to:</p>
+              {stores.map(s=>(
+                <button key={s.id} onClick={()=>setSelectedStoreId(s.id)} style={{
+                  padding:"4px 11px",borderRadius:18,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
+                  background:selectedStoreId===s.id?s.color:"var(--chip)",
+                  color:selectedStoreId===s.id?"white":"var(--ink2)",
+                  display:"inline-flex",alignItems:"center",gap:5
+                }}>
+                  <span style={{fontSize:10,fontWeight:700}}>{storeIcon(s.name)}</span>
+                  {s.name}
+                </button>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input value={itemInput} onChange={e=>{setItemInput(e.target.value);setShowItemSugs(true);}}
+                onKeyDown={e=>{if(e.key==="Enter")handleAdd();if(e.key==="Escape")setShowItemSugs(false);}}
+                onFocus={()=>setShowItemSugs(true)}
+                onBlur={()=>setTimeout(()=>setShowItemSugs(false),180)}
+                placeholder={selectedStoreId?`Add to ${selectedStore?.name||""}…`:"Select a store first"}
+                disabled={!selectedStoreId}
+                style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:15,padding:"6px 0",color:"var(--ink)"}}/>
+              <button onClick={handleAdd} disabled={!selectedStoreId||!itemInput.trim()}
+                style={{background:selectedStore?selectedStore.color:"var(--muted)",color:"white",border:"none",borderRadius:11,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:selectedStoreId?"pointer":"not-allowed",letterSpacing:0.2}}>Add</button>
+            </div>
+          </div>
+          {/* Suggestions — high z-index, rendered absolute below */}
+          {showItemSugs && itemSugs.length>0 && (
+            <div style={{position:"absolute",left:0,right:0,top:"calc(100% + 4px)",background:"var(--card)",backdropFilter:"blur(20px)",borderRadius:14,boxShadow:"0 12px 40px rgba(0,0,0,0.18)",border:"1px solid var(--line2)",overflow:"hidden",zIndex:9999}}>
+              {itemSugs.map((s,i)=>(
+                <div key={i} onMouseDown={e=>{e.preventDefault();handleAddSuggestion(s);}} style={{padding:"11px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,fontSize:14,color:"var(--ink)",borderBottom:i<itemSugs.length-1?"1px solid var(--line)":"none"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="var(--chip)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <span style={{color:"var(--muted)",width:14,textAlign:"center",fontSize:12}}>{itemEmoji(s)}</span>
+                  <span className="serif" style={{flex:1,fontWeight:500}}>{s}</span>
+                  <span className="mono" style={{fontSize:10,color:"var(--muted)"}}>↩ add</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {stores.length===0 && (
+        <div style={{textAlign:"center",padding:"60px 20px",color:"var(--muted)"}}>
+          <p className="serif ital" style={{fontSize:22,color:"var(--ink2)",marginBottom:8}}>No stores yet</p>
+          <p style={{fontSize:13,marginBottom:16}}>Add your first store below</p>
+        </div>
+      )}
+
+      {/* Kanban — horizontal scroll */}
+      {stores.length>0 && (
+        <div ref={kanbanRef} className="kanban-scroll" style={{
+          display:"flex",gap:14,overflowX:"auto",overflowY:"visible",
+          paddingBottom:14,scrollSnapType:"x mandatory",
+          marginLeft:"calc(-1 * var(--page-pad, 20px))",marginRight:"calc(-1 * var(--page-pad, 20px))",
+          paddingLeft:"var(--page-pad, 20px)",paddingRight:"var(--page-pad, 20px)",
+        }}>
+          {stores.map(store=>(
+            <StoreColumn key={store.id} store={store} color={store.color}
+              items={items.filter(i=>i.storeId===store.id)} stores={stores}
+              selected={selectedStoreId===store.id}
+              onSelect={setSelectedStoreId}
+              onRemoveItem={onRemoveItem} onIncrement={onIncrement} onDecrement={onDecrement} onMoveItem={onMoveItem} onDeleteStore={onDeleteStore}
+              draggingId={draggingId} onDragStart={onDragStart} onDragEnd={onDragEndWrapper}
+              onDrop={onDrop} newItemIds={newItemIds} onTouchMove={onTouchMove}
+              activeDropZone={activeDropZone}/>
+          ))}
+
+          {/* Add store column */}
+          <div style={{flex:"0 0 220px",scrollSnapAlign:"start",display:"flex",alignItems:"flex-start",paddingTop:8}}>
+            {!showAddStore ? (
+              <button onClick={()=>{setShowAddStore(true);setTimeout(()=>storeInputRef.current?.focus(),50);}}
+                style={{width:"100%",padding:"24px 18px",borderRadius:16,border:"1.5px dashed var(--line2)",background:"transparent",cursor:"pointer",fontSize:13,color:"var(--ink2)",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                <span style={{fontSize:18}}>+</span> Add store
+              </button>
+            ) : (
+              <div style={{position:"relative",width:"100%"}}>
+                <div style={{background:"var(--card)",borderRadius:14,padding:"12px 14px",border:"1.5px solid var(--accent)",display:"flex",gap:6,alignItems:"center"}}>
+                  <input ref={storeInputRef} value={storeInput} onChange={e=>setStoreInput(e.target.value)}
+                    onKeyDown={e=>{if(e.key==="Enter")handleAddStore(storeInput);if(e.key==="Escape"){setShowAddStore(false);setStoreInput("");}}}
+                    placeholder="Store name…" style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:14,color:"var(--ink)"}}/>
+                  <button onClick={()=>handleAddStore(storeInput)} style={{background:"var(--accent)",color:"white",border:"none",borderRadius:8,padding:"5px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Add</button>
+                  <button onClick={()=>{setShowAddStore(false);setStoreInput("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"var(--muted)"}}>✕</button>
+                </div>
+                {storeSugs.length>0 && (
+                  <div style={{position:"absolute",left:0,right:0,top:"calc(100% + 4px)",background:"var(--card)",backdropFilter:"blur(14px)",borderRadius:12,boxShadow:"0 12px 30px rgba(0,0,0,0.18)",border:"1px solid var(--line2)",overflow:"hidden",zIndex:200}}>
+                    {storeSugs.map((s,i)=>(
+                      <div key={i} onMouseDown={e=>{e.preventDefault();handleAddStore(s);}}
+                        style={{padding:"9px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--ink)",borderBottom:i<storeSugs.length-1?"1px solid var(--line)":"none"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="var(--chip)"}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <span style={{width:18,height:18,borderRadius:5,background:"var(--chip)",color:"var(--ink2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{storeIcon(s)}</span>
+                        <span>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile hint */}
+      {isMobile && stores.length>1 && (
+        <p className="mono" style={{textAlign:"center",fontSize:10,color:"var(--muted)",marginTop:8,letterSpacing:0.5}}>↔ swipe between stores · ⠿ long-press to drag</p>
+      )}
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━ App ━━━━━━━━━━━━
+function App(){
+  const [tweaks,setTweak] = useTweaks();
+  const {w, isMobile, isWide} = useViewport();
+
+  const [config,setConfig]           = US(null);
+  const [stores,setStores]           = US([]);
+  const [items,setItems]             = US([]);
+  const [history,setHistory]         = US([]);
+  const [activities,setActivities]   = US([]);
+  const [paperwork,setPaperwork]     = US([]);
+  const [loading,setLoading]         = US(true);
+  const [bgLabel,setBgLabel]         = US("");
+  const [apiError,setApiError]       = US("");
+  const [lastSync,setLastSync]       = US(null);
+  const [activeTab,setActiveTab]     = US("home");
+  const [showHistory,setShowHistory] = US(false);
+  const [showTweaks,setShowTweaks]   = US(false);
+  const [uploading,setUploading]     = US(false);
+  const [newItemIds,setNewItemIds]   = US(new Set());
+  const [selectedStoreId,setSelectedStoreId] = US(null);
+  const [draggingId,setDraggingId]   = US(null);
+  const configRef=UR(null);
+
+  UE(()=>{const cfg=loadConfig();if(cfg.scriptUrl&&cfg.password){configRef.current=cfg;setConfig(cfg);}else setLoading(false);},[]);
+
+  const applyData=UCB((data)=>{
+    if(data.stores!==undefined) setStores(data.stores.map((s,i)=>({...s,color:s.color||STORE_COLORS[i%STORE_COLORS.length]})));
+    if(data.items!==undefined) setItems(data.items);
+    if(data.history!==undefined) setHistory(data.history);
+    if(data.activities!==undefined) setActivities(data.activities);
+    if(data.paperwork!==undefined) setPaperwork(data.paperwork);
+    saveCache(data); setLastSync(new Date()); setApiError("");
+  },[]);
+
+  const fetchAll=UCB(async(cfg,hasCached=false)=>{
+    cfg=cfg||configRef.current; if(!cfg)return;
+    setBgLabel("Syncing…");
+    try{const data=await api(cfg.scriptUrl,cfg.password,"getAll");applyData(data);setApiError("");}
+    catch(e){if(hasCached){setTimeout(async()=>{try{const data=await api(cfg.scriptUrl,cfg.password,"getAll");applyData(data);setApiError("");}catch(_){}},3000);}else setApiError(e.message);}
+    finally{setBgLabel("");}
+  },[applyData]);
+
+  UE(()=>{if(!config)return;configRef.current=config;const cached=loadCache();if(cached){applyData(cached);setLoading(false);fetchAll(config,true);}else{setLoading(true);fetchAll(config,false).finally(()=>setLoading(false));}},[config]);
+  UE(()=>{if(!config)return;const t=setInterval(()=>fetchAll(null,true),12000);return ()=>clearInterval(t);},[config,fetchAll]);
+  UE(()=>{if(stores.length>0&&(!selectedStoreId||!stores.find(s=>s.id===selectedStoreId)))setSelectedStoreId(stores[0].id);if(stores.length===0)setSelectedStoreId(null);},[stores]);
+
+  // Listen for tweaks toolbar messages
+  UE(()=>{
+    const handler=(e)=>{
+      if(e.data?.type==="__activate_edit_mode") setShowTweaks(true);
+      if(e.data?.type==="__deactivate_edit_mode") setShowTweaks(false);
+    };
+    window.addEventListener("message",handler);
+    try{window.parent.postMessage({type:"__edit_mode_available"},"*");}catch{}
+    return ()=>window.removeEventListener("message",handler);
+  },[]);
+
+  const bgAct=UCB(async(action,extra)=>{
+    const cfg=configRef.current;if(!cfg)return;
+    setBgLabel("Saving…");
+    try{const data=await api(cfg.scriptUrl,cfg.password,action,extra);applyData(data);if(data._calendarError)setApiError("Saved, calendar error: "+data._calendarError);}
+    catch(e){setApiError(e.message);}
+    finally{setBgLabel("");}
+  },[applyData]);
+
+  // Shopping
+  const addStore=UCB(async(name)=>{
+    const t=name.trim();if(!t||stores.find(s=>s.name.toLowerCase()===t.toLowerCase()))return;
+    const ns={id:uid(),name:t,color:STORE_COLORS[stores.length%STORE_COLORS.length]};
+    setStores(p=>[...p,ns]);setSelectedStoreId(ns.id);
+    await bgAct("addStore",ns);
+  },[stores,bgAct]);
+  const deleteStore=UCB(async(id)=>{
+    if(!confirm("Remove this store? Items will be deleted too."))return;
+    setStores(p=>p.filter(s=>s.id!==id));setItems(p=>p.filter(i=>i.storeId!==id));
+    await bgAct("removeStore",{id});
+  },[bgAct]);
+  const addItem=UCB(async(name)=>{
+    const t=name.trim();if(!t||!selectedStoreId)return;
+    const existing=items.find(i=>i.name.toLowerCase()===t.toLowerCase()&&i.storeId===selectedStoreId);
+    if(existing){
+      setItems(p=>p.map(i=>i.id===existing.id?{...i,count:Number(i.count)+1}:i));
+      await bgAct("updateItem",{id:existing.id,updates:{count:Number(existing.count)+1}});
+    }else{
+      const ni={id:uid(),name:t,count:1,emoji:itemEmoji(t),storeId:selectedStoreId,addedAt:Date.now(),_pending:true};
+      setItems(p=>[...p,ni]);
+      setNewItemIds(s=>new Set([...s,ni.id]));
+      setTimeout(()=>setNewItemIds(s=>{const n=new Set(s);n.delete(ni.id);return n;}),1500);
+      setHistory(p=>[t,...p.filter(h=>h.toLowerCase()!==t.toLowerCase())].slice(0,80));
+      await bgAct("addItem",{...ni,_pending:undefined});
+    }
+  },[items,selectedStoreId,bgAct]);
+  const removeItem=UCB(async id=>{setItems(p=>p.filter(i=>i.id!==id));await bgAct("removeItem",{id});},[bgAct]);
+  const increment=UCB(async id=>{setItems(p=>p.map(i=>i.id===id?{...i,count:Number(i.count)+1}:i));const it=items.find(i=>i.id===id);if(it)await bgAct("updateItem",{id,updates:{count:Number(it.count)+1}});},[items,bgAct]);
+  const decrement=UCB(async id=>{const it=items.find(i=>i.id===id);if(!it||Number(it.count)<=1)return;setItems(p=>p.map(i=>i.id===id?{...i,count:Number(i.count)-1}:i));await bgAct("updateItem",{id,updates:{count:Number(it.count)-1}});},[items,bgAct]);
+  const moveItem=UCB(async(id,storeId)=>{setItems(p=>p.map(i=>i.id===id?{...i,storeId}:i));await bgAct("moveItem",{id,storeId});},[bgAct]);
+  const removeHistEntry=UCB(async name=>{setHistory(p=>p.filter(h=>h!==name));await bgAct("removeHistory",{name});},[bgAct]);
+  const clearHistAll=UCB(async()=>{setHistory([]);setShowHistory(false);await bgAct("clearHistory");},[bgAct]);
+  // Activities
+  const addActivity=UCB(async(data)=>{const calendarId=configRef.current?.calendarId||"";await bgAct("addActivity",{...data,calendarId});},[bgAct]);
+  const deleteActivity=UCB(async(id)=>{const calendarId=configRef.current?.calendarId||"";setActivities(p=>p.filter(a=>a.id!==id));setPaperwork(p=>p.filter(pw=>String(pw.activityId)!==String(id)));await bgAct("removeActivity",{id,calendarId});},[bgAct]);
+  const addPaperwork=UCB(async(data)=>{setPaperwork(p=>[...p,{...data,completed:false}]);await bgAct("addPaperwork",data);},[bgAct]);
+  const togglePaperwork=UCB(async(id,completed)=>{setPaperwork(p=>p.map(pw=>pw.id===id?{...pw,completed}:pw));await bgAct("updatePaperwork",{id,updates:{completed}});},[bgAct]);
+  const deletePaperwork=UCB(async(id)=>{setPaperwork(p=>p.filter(pw=>pw.id!==id));await bgAct("removePaperwork",{id});},[bgAct]);
+  const uploadFile=UCB(async(file,label,activityId)=>{
+    setUploading(true);
+    try{
+      const cfg=configRef.current;if(!cfg)return null;
+      const reader=new FileReader();
+      const b64=await new Promise((res,rej)=>{reader.onload=e=>res(e.target.result.split(",")[1]);reader.onerror=rej;reader.readAsDataURL(file);});
+      const result=await api(cfg.scriptUrl,cfg.password,"uploadFile",{fileData:b64,mimeType:file.type,fileName:file.name});
+      if(result.error){alert("Upload failed: "+result.error);return null;}
+      return result.url;
+    }catch(e){alert("Upload failed: "+e.message);return null;}
+    finally{setUploading(false);}
+  },[]);
+
+  const onDrop=UCB((targetStoreId)=>{
+    if(draggingId && targetStoreId){
+      const it=items.find(i=>i.id===draggingId);
+      if(it && it.storeId!==targetStoreId) moveItem(draggingId,targetStoreId);
+    }
+    setDraggingId(null);
+  },[draggingId,items,moveItem]);
+
+  const syncTime=lastSync?lastSync.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—";
+
+  if(!config) return <SetupScreen onComplete={cfg=>{setConfig(cfg);setLoading(true);}}/>;
+  if(loading) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <div style={{width:32,height:32,border:"2.5px solid var(--line2)",borderTopColor:"var(--accent)",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+      <p className="serif ital" style={{fontSize:16,color:"var(--ink2)"}}>Loading…</p>
+    </div>
+  );
+
+  // Layout decision
+  const useSidebar = (tweaks.layout==="sidebar") || (tweaks.layout==="auto" && isWide);
+  const tabs=[["home","Home","◐"],["shopping","Shopping","☐"],["activities","Activities","◇"]];
+
+  const pagePadStyle = isMobile ? {"--page-pad":"16px"} : {"--page-pad":"28px"};
+
+  // Sticky header content
+  const Header = (
+    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+      <div>
+        <p className="serif ital" style={{fontSize:13,color:"var(--accent)",marginBottom:0}}>our</p>
+        <h1 className="serif" style={{fontSize:isMobile?26:34,fontWeight:500,color:"var(--ink)",lineHeight:1,letterSpacing:-0.6}}>Family.</h1>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{background:"var(--chip)",borderRadius:18,padding:"5px 10px",display:"inline-flex",alignItems:"center",gap:6}}>
+          {bgLabel ? (
+            <div style={{width:8,height:8,border:"1.5px solid var(--accent)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.6s linear infinite"}}/>
+          ) : (
+            <div style={{width:6,height:6,borderRadius:"50%",background:"var(--accent)",animation:"pulse 2.5s infinite"}}/>
+          )}
+          <span className="mono" style={{fontSize:10,color:"var(--accent)",fontWeight:700,letterSpacing:0.4}}>{bgLabel||"Synced"}</span>
+        </div>
+        <button onClick={()=>setShowTweaks(p=>!p)} title="Tweaks" style={{width:34,height:34,borderRadius:"50%",border:"1px solid var(--line2)",background:"var(--card)",cursor:"pointer",fontSize:14,color:"var(--ink2)"}}>⚙</button>
+      </div>
+    </div>
+  );
+
+  const TabBar = ({orientation="horizontal"})=>(
+    <div style={{
+      display:"flex",
+      flexDirection:orientation==="vertical"?"column":"row",
+      gap:orientation==="vertical"?4:4,
+      background:orientation==="vertical"?"transparent":"var(--card)",
+      border:orientation==="vertical"?"none":"1px solid var(--line)",
+      borderRadius:14,padding:orientation==="vertical"?0:4,
+      marginBottom:orientation==="vertical"?0:18
+    }}>
+      {tabs.map(([id,label,glyph])=>(
+        <button key={id} onClick={()=>setActiveTab(id)}
+          style={{
+            flex:orientation==="vertical"?"none":1,
+            padding:orientation==="vertical"?"12px 14px":"10px",
+            borderRadius:orientation==="vertical"?12:10,
+            border:"none",cursor:"pointer",fontFamily:"var(--font-body)",fontSize:13.5,fontWeight:600,
+            transition:"all 0.15s",
+            background:activeTab===id?(orientation==="vertical"?"var(--accent)":"var(--bg)"):"transparent",
+            color:activeTab===id?(orientation==="vertical"?"white":"var(--ink)"):"var(--ink2)",
+            boxShadow:activeTab===id&&orientation!=="vertical"?"0 2px 8px var(--glow)":"none",
+            display:"flex",alignItems:"center",gap:9,justifyContent:orientation==="vertical"?"flex-start":"center",
+            textAlign:"left",
+          }}>
+          <span style={{fontSize:14,opacity:0.85}}>{glyph}</span>
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  const TabBody = (
+    <>
+      {activeTab==="home" && (
+        <HomeView stores={stores} items={items} activities={activities} paperwork={paperwork}
+          onIncrement={increment} onDecrement={decrement} onRemoveItem={removeItem}
+          onTogglePaperwork={togglePaperwork} onAddPaperwork={addPaperwork} onUpload={uploadFile} uploading={uploading}
+          onGoTo={setActiveTab}/>
+      )}
+      {activeTab==="shopping" && (
+        <ShoppingTab stores={stores} items={items} history={history}
+          selectedStoreId={selectedStoreId} setSelectedStoreId={setSelectedStoreId}
+          onAddItem={addItem} onRemoveItem={removeItem} onIncrement={increment} onDecrement={decrement} onMoveItem={moveItem}
+          onAddStore={addStore} onDeleteStore={deleteStore}
+          draggingId={draggingId} onDragStart={setDraggingId} onDragEnd={()=>setDraggingId(null)} onDrop={onDrop}
+          newItemIds={newItemIds} isMobile={isMobile}/>
+      )}
+      {activeTab==="activities" && (
+        <ActivitiesTab activities={activities} paperwork={paperwork} view={tweaks.activitiesView}
+          onAdd={addActivity} onDelete={deleteActivity}
+          onTogglePaperwork={togglePaperwork} onDeletePaperwork={deletePaperwork}
+          onAddPaperwork={addPaperwork} onUpload={uploadFile} uploading={uploading}/>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {showHistory && <HistoryModal history={history} onRemove={removeHistEntry} onClearAll={clearHistAll} onClose={()=>setShowHistory(false)}/>}
+      {showTweaks && <TweaksPanel tweaks={tweaks} setTweak={setTweak} onClose={()=>{setShowTweaks(false);try{window.parent.postMessage({type:"__edit_mode_dismissed"},"*");}catch{}}}/>}
+
+      <div style={{minHeight:"100vh",...pagePadStyle}}>
+        {useSidebar ? (
+          // ─── SIDEBAR LAYOUT (desktop) ───
+          <div style={{display:"grid",gridTemplateColumns:"240px 1fr",gap:0,minHeight:"100vh"}}>
+            <aside style={{padding:"32px 20px",borderRight:"1px solid var(--line)",position:"sticky",top:0,height:"100vh",display:"flex",flexDirection:"column",gap:24}}>
+              <div>
+                <p className="serif ital" style={{fontSize:13,color:"var(--accent)",marginBottom:2}}>our</p>
+                <h1 className="serif" style={{fontSize:30,fontWeight:500,color:"var(--ink)",lineHeight:1,letterSpacing:-0.6}}>Family.</h1>
+              </div>
+              <TabBar orientation="vertical"/>
+              <div style={{marginTop:"auto",display:"flex",flexDirection:"column",gap:8}}>
+                {activeTab==="shopping" && <button onClick={()=>setShowHistory(true)} style={{background:"var(--card)",border:"1px solid var(--line2)",borderRadius:10,padding:"7px 12px",cursor:"pointer",fontSize:12,color:"var(--ink2)",fontWeight:600}}>History</button>}
+                <button onClick={()=>setShowTweaks(p=>!p)} style={{background:"var(--card)",border:"1px solid var(--line2)",borderRadius:10,padding:"7px 12px",cursor:"pointer",fontSize:12,color:"var(--ink2)",fontWeight:600}}>⚙ Tweaks</button>
+                <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px"}}>
+                  {bgLabel ? (
+                    <div style={{width:7,height:7,border:"1.3px solid var(--accent)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.6s linear infinite"}}/>
+                  ) : (
+                    <div style={{width:6,height:6,borderRadius:"50%",background:"var(--accent)",animation:"pulse 2.5s infinite"}}/>
+                  )}
+                  <span className="mono" style={{fontSize:10,color:"var(--muted)",letterSpacing:0.4}}>{bgLabel||`Synced ${syncTime}`}</span>
+                </div>
+                <p className="mono" style={{fontSize:9,color:"var(--muted)",cursor:"pointer",textDecoration:"underline"}} onClick={()=>{if(confirm("Disconnect?")){localStorage.removeItem(CFG_KEY);setConfig(null);setLoading(false);}}}>Change connection</p>
+              </div>
+            </aside>
+            <main style={{padding:"36px 36px",maxWidth:1100,width:"100%"}}>
+              {apiError && <p style={{fontSize:12,color:"#c05050",background:"rgba(200,80,80,0.08)",padding:"8px 14px",borderRadius:10,marginBottom:14}}>⚠ {apiError}</p>}
+              {TabBody}
+            </main>
+          </div>
+        ) : (
+          // ─── TABS LAYOUT (mobile / narrow) ───
+          <div style={{maxWidth:760,margin:"0 auto",padding:`24px var(--page-pad,16px) 80px`}}>
+            {Header}
+            {apiError && <p style={{fontSize:12,color:"#c05050",background:"rgba(200,80,80,0.08)",padding:"7px 12px",borderRadius:9,margin:"12px 0"}}>⚠ {apiError}</p>}
+            <div style={{marginTop:18}}>
+              <TabBar/>
+              {activeTab==="shopping" && (
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+                  <button onClick={()=>setShowHistory(true)} style={{background:"var(--card)",border:"1px solid var(--line2)",borderRadius:9,padding:"4px 10px",cursor:"pointer",fontSize:11,color:"var(--ink2)",fontWeight:600}}>History</button>
+                </div>
+              )}
+              {TabBody}
+            </div>
+            <p className="mono" style={{textAlign:"center",marginTop:24,fontSize:10,color:"var(--muted)",letterSpacing:0.5}}>
+              <span style={{cursor:"pointer",textDecoration:"underline"}} onClick={()=>{if(confirm("Disconnect?")){localStorage.removeItem(CFG_KEY);setConfig(null);setLoading(false);}}}>change connection</span>
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
