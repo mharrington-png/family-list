@@ -738,16 +738,6 @@ function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove
   const longPress=UR(null);
   const moved=UR(false);
   const rowRef=UR(null);
-  const moveBtnRef=UR(null);
-
-  const openMove=(e)=>{
-    e.stopPropagation();
-    if(moveBtnRef.current){
-      const r=moveBtnRef.current.getBoundingClientRect();
-      setMovePos({top:r.bottom+6, right:window.innerWidth-r.right});
-    }
-    setShowMove(p=>!p);
-  };
 
   // Touch: long-press to start drag, otherwise swipe
   const onTS=e=>{
@@ -817,7 +807,7 @@ function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove
         <span className="serif" style={{flex:1,fontSize:15,color:"var(--ink)",fontWeight:500,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</span>
         {item._pending && <span style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0,animation:"pulse 1s infinite"}}/>}
         <div style={{position:"relative",flexShrink:0}}>
-          <button ref={moveBtnRef} onClick={openMove} style={{background:"transparent",border:`1px solid ${color}`,borderRadius:7,padding:"3px 7px",cursor:"pointer",fontSize:10,color:color,fontWeight:700,letterSpacing:0.3}}>MOVE</button>
+          <button onClick={e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();setMovePos({top:r.bottom+6,right:window.innerWidth-r.right});setShowMove(p=>!p);}} style={{background:"transparent",border:`1px solid ${color}`,borderRadius:7,padding:"3px 7px",cursor:"pointer",fontSize:10,color:color,fontWeight:700,letterSpacing:0.3}}>MOVE</button>
           {showMove && (
             <div style={{position:"fixed",top:movePos.top,right:movePos.right,background:"var(--card)",backdropFilter:"blur(14px)",borderRadius:10,boxShadow:"0 12px 30px rgba(0,0,0,0.28)",border:"1px solid var(--line2)",zIndex:99999,minWidth:160,overflow:"hidden"}}>
               {stores.filter(s=>s.id!==item.storeId).map(s=>(
