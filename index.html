@@ -728,15 +728,26 @@ function useViewport(){
 }
 
 // ━━━━━━━━━━━━ SwipeRow (shopping item) ━━━━━━━━━━━━
-function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove,draggingId,onDragStart,onDragEnd,isNew,onTouchMove}){
+function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove,draggingId,onDragStart,onDragEnd,isNew,onTouchMove,isColumnFocused}){
   const [swipeX,setSwipeX]=US(0);
   const [swiping,setSwiping]=US(false);
   const [removing,setRemoving]=US(false);
   const [showMove,setShowMove]=US(false);
+  const [movePos,setMovePos]=US({top:0,right:0});
   const sX=UR(0); const dx=UR(0); const startTime=UR(0);
   const longPress=UR(null);
   const moved=UR(false);
   const rowRef=UR(null);
+  const moveBtnRef=UR(null);
+
+  const openMove=(e)=>{
+    e.stopPropagation();
+    if(moveBtnRef.current){
+      const r=moveBtnRef.current.getBoundingClientRect();
+      setMovePos({top:r.bottom+6, right:window.innerWidth-r.right});
+    }
+    setShowMove(p=>!p);
+  };
 
   // Touch: long-press to start drag, otherwise swipe
   const onTS=e=>{
@@ -761,6 +772,8 @@ function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove
       onTouchMove&&onTouchMove(t.clientX,t.clientY);
       return;
     }
+    // Only allow swipe-to-delete on the focused/selected column
+    if(!isColumnFocused){ dx.current=0; return; }
     if(Math.abs(dxNow)>6 && !swiping) setSwiping(true);
     dx.current=dxNow;
     if(dxNow<0) setSwipeX(Math.max(dxNow,-120));
@@ -773,8 +786,20 @@ function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove
       return;
     }
     setSwiping(false);
-    if(dx.current<-80){setRemoving(true);setTimeout(()=>onRemove(item.id),250);}
-    else setSwipeX(0);
+    if(dx.current<-80 && isColumnFocused){
+      // Snap to reveal delete zone and ask for confirmation
+      setSwipeX(-110);
+      setTimeout(()=>{
+        if(window.confirm(`Remove "${item.name}"?`)){
+          setRemoving(true);
+          setTimeout(()=>onRemove(item.id),250);
+        } else {
+          setSwipeX(0);
+        }
+      }, 80);
+    } else {
+      setSwipeX(0);
+    }
   };
 
   const isDragging = draggingId===item.id;
@@ -792,9 +817,9 @@ function ShoppingItem({item,color,stores,onRemove,onIncrement,onDecrement,onMove
         <span className="serif" style={{flex:1,fontSize:15,color:"var(--ink)",fontWeight:500,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</span>
         {item._pending && <span style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0,animation:"pulse 1s infinite"}}/>}
         <div style={{position:"relative",flexShrink:0}}>
-          <button onClick={e=>{e.stopPropagation();setShowMove(p=>!p);}} style={{background:"transparent",border:`1px solid ${color}`,borderRadius:7,padding:"3px 7px",cursor:"pointer",fontSize:10,color:color,fontWeight:700,letterSpacing:0.3}}>MOVE</button>
+          <button ref={moveBtnRef} onClick={openMove} style={{background:"transparent",border:`1px solid ${color}`,borderRadius:7,padding:"3px 7px",cursor:"pointer",fontSize:10,color:color,fontWeight:700,letterSpacing:0.3}}>MOVE</button>
           {showMove && (
-            <div style={{position:"absolute",right:0,top:"calc(100% + 4px)",background:"var(--card)",backdropFilter:"blur(14px)",borderRadius:10,boxShadow:"0 12px 30px rgba(0,0,0,0.18)",border:"1px solid var(--line2)",zIndex:9999,minWidth:160,overflow:"hidden"}}>
+            <div style={{position:"fixed",top:movePos.top,right:movePos.right,background:"var(--card)",backdropFilter:"blur(14px)",borderRadius:10,boxShadow:"0 12px 30px rgba(0,0,0,0.28)",border:"1px solid var(--line2)",zIndex:99999,minWidth:160,overflow:"hidden"}}>
               {stores.filter(s=>s.id!==item.storeId).map(s=>(
                 <div key={s.id} onClick={e=>{e.stopPropagation();onMove(item.id,s.id);setShowMove(false);}} style={{padding:"9px 13px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--ink)",borderBottom:"1px solid var(--line)"}}>
                   <span style={{width:18,height:18,borderRadius:5,background:s.color,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{storeIcon(s.name)}</span>
@@ -861,7 +886,8 @@ function StoreColumn({store,items,stores,color,selected,onSelect,onRemoveItem,on
           <ShoppingItem key={item.id} item={item} color={color} stores={stores}
             onRemove={onRemoveItem} onIncrement={onIncrement} onDecrement={onDecrement} onMove={onMoveItem}
             draggingId={draggingId} onDragStart={onDragStart} onDragEnd={onDragEnd}
-            isNew={newItemIds.has(item.id)} onTouchMove={onTouchMove}/>
+            isNew={newItemIds.has(item.id)} onTouchMove={onTouchMove}
+            isColumnFocused={selected}/>
         ))}
       </div>
     </div>
